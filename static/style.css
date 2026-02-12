@@ -1,0 +1,664 @@
+/* ================= GLOBAL VARIABLES ================= */
+:root {
+    --primary-color: #2d6a4f;      /* Deep Forest Green */
+    --secondary-color: #40916c;    /* Leaf Green */
+    --accent-color: #95d5b2;       /* Soft Mint */
+    --bg-light: #f8faf9;
+    --card-bg: #ffffff;
+    --text-main: #1b4332;
+    --text-muted: #555;
+    --border-color: #d8e2dc;
+    --danger: #e76f51;
+    --shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+    --transition: all 0.3s ease;
+}
+
+/* Dark Mode Variables */
+body.dark {
+    --bg-light: #121212;
+    --card-bg: #1e1e1e;
+    --text-main: #e8f5e9;
+    --text-muted: #b0bec5;
+    --border-color: #333;
+    --shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+}
+
+/* ================= BASE STYLES ================= */
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    background-color: var(--bg-light);
+    color: var(--text-main);
+    line-height: 1.6;
+    transition: var(--transition);
+    padding-bottom: 80px; /* Space for floating export buttons */
+}
+
+section {
+    max-width: 1000px;
+    margin: 20px auto;
+    padding: 25px;
+    background: var(--card-bg);
+    border-radius: 12px;
+    box-shadow: var(--shadow);
+}
+
+h1, h2, h3 {
+    margin-bottom: 15px;
+    color: var(--primary-color);
+}
+
+body.dark h1, body.dark h2, body.dark h3 {
+    color: var(--accent-color);
+}
+
+/* ================= NAVIGATION (SIDE MENU) ================= */
+/* ================= SIDE MENU FINAL CLEAN VERSION ================= */
+.side-menu {
+    position: fixed;
+    top: 0;
+    left: -260px;
+    width: 260px;
+    height: 100%;
+    background: #0f172a;
+    padding-top: 80px;
+    transition: left 0.35s ease;
+    z-index: 2000;
+    border-right: 1px solid rgba(255,255,255,0.05);
+}
+
+.side-menu.active {
+    left: 0;
+}
+
+.side-menu a {
+    display: block;
+    padding: 14px 24px;
+    color: #cbd5e1;
+    text-decoration: none;
+    transition: 0.3s ease;
+}
+
+.side-menu a:hover {
+    background: rgba(37, 99, 235, 0.15);
+    color: white;
+    padding-left: 30px;
+}
+
+/* ================= BUTTONS & INPUTS ================= */
+.top-btn {
+    background: var(--card-bg);
+    border: 1px solid var(--border-color);
+    padding: 10px 15px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 1.2rem;
+    box-shadow: var(--shadow);
+    transition: var(--transition);
+}
+
+.top-btn:hover {
+    transform: translateY(-2px);
+    background: var(--accent-color);
+}
+
+button:not(.top-btn) {
+    background-color: var(--primary-color);
+    color: white;
+    border: none;
+    padding: 12px 24px;
+    border-radius: 6px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: var(--transition);
+}
+
+button:hover {
+    background-color: var(--secondary-color);
+    filter: brightness(1.1);
+}
+
+input, select {
+    width: 100%;
+    padding: 10px;
+    margin: 10px 0 20px 0;
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    background: var(--card-bg);
+    color: var(--text-main);
+}
+
+/* ================= TABLES ================= */
+table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 15px;
+}
+
+th, td {
+    padding: 12px;
+    text-align: left;
+    border-bottom: 1px solid var(--border-color);
+}
+
+th {
+    background-color: var(--accent-color);
+    color: var(--primary-color);
+}
+
+body.dark th {
+    background-color: #2d2d2d;
+    color: var(--accent-color);
+}
+
+/* ================= KPI SECTION ================= */
+.kpi-section {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 20px;
+    background: transparent;
+    box-shadow: none;
+}
+
+.kpi-card {
+    background: var(--card-bg);
+    padding: 20px;
+    border-radius: 12px;
+    text-align: center;
+    box-shadow: var(--shadow);
+    border-top: 4px solid var(--primary-color);
+}
+
+.kpi-card span {
+    font-size: 2rem;
+    font-weight: bold;
+    color: var(--secondary-color);
+}
+
+/* ================= INSIGHT CARDS ================= */
+.insights {
+    display: flex;
+    gap: 15px;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+}
+
+.insight-card {
+    flex: 1;
+    min-width: 200px;
+    padding: 15px;
+    border-radius: 8px;
+    color: white;
+}
+
+.insight-card.eco { background: #2d6a4f; }
+.insight-card.cost { background: #1b4332; }
+.insight-card.best { background: #52b788; }
+
+/* ================= LOADER ================= */
+.loader {
+    position: fixed;
+    top: 0; left: 0; width: 100%; height: 100%;
+    background: rgba(255,255,255,0.9);
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    z-index: 9999;
+}
+
+body.dark .loader { background: rgba(0,0,0,0.8); }
+
+.spinner {
+    width: 50px;
+    height: 50px;
+    border: 5px solid var(--accent-color);
+    border-top: 5px solid var(--primary-color);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+.hidden { display: none !important; }
+
+/* ================= EXPORT FLOATING BAR ================= */
+.export-floating {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    display: flex;
+    gap: 10px;
+}
+
+/* ================= CHART CANVAS SCALING ================= */
+canvas {
+    max-width: 100%;
+    margin: 20px 0;
+}
+
+/* ================= REJECTED LIST ================= */
+.rejected_materials ul {
+    list-style: none;
+}
+
+.rejected_materials li {
+    padding: 8px;
+    margin-bottom: 5px;
+    background: rgba(231, 111, 81, 0.1);
+    border-left: 4px solid var(--danger);
+    font-size: 0.9rem;
+}
+/* ================= COMPARISON GRID ================= */
+/* Creates a 2-column layout for charts and dropdowns */
+.compare_with_existing, .ai-material-comparison {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+    align-items: start;
+}
+
+@media (max-width: 768px) {
+    .compare_with_existing, .ai-material-comparison {
+        grid-template-columns: 1fr; /* Stack on mobile */
+    }
+}
+
+/* Control Panel within the Comparison Section */
+.compare-controls {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+    padding: 20px;
+    background: rgba(0, 0, 0, 0.02);
+    border-radius: 8px;
+}
+
+body.dark .compare-controls {
+    background: rgba(255, 255, 255, 0.05);
+}
+
+/* Radar & Comparison Chart Sizing */
+#radarChart, #compareChart, #ecoChart {
+    background: var(--card-bg);
+    padding: 15px;
+    border-radius: 12px;
+    border: 1px solid var(--border-color);
+    max-height: 400px;
+}
+
+/* ================= AI REASONING BOX ================= */
+.ai-reason {
+    border-left: 5px solid var(--secondary-color);
+    background: linear-gradient(to right, rgba(64, 145, 108, 0.1), transparent);
+    font-style: italic;
+}
+
+#aiText {
+    font-weight: 500;
+    color: var(--primary-color);
+}
+
+body.dark #aiText {
+    color: var(--accent-color);
+}
+
+/* ================= SELECT2 CUSTOM STYLING ================= */
+/* Matches Select2 dropdowns to our theme */
+.select2-container--default .select2-selection--single {
+    background-color: var(--card-bg);
+    border: 1px solid var(--border-color);
+    height: 40px;
+    display: flex;
+    align-items: center;
+}
+
+.select2-container--default .select2-selection--single .select2-selection__rendered {
+    color: var(--text-main);
+}
+
+.select2-dropdown {
+    background-color: var(--card-bg);
+    border: 1px solid var(--border-color);
+    color: var(--text-main);
+}
+/* ================= COMPARISON GRID LAYOUT ================= */
+.compare-container {
+    display: grid;
+    grid-template-columns: 1fr 1.5fr; /* Controls on left, Chart on right */
+    gap: 30px;
+    align-items: center;
+    margin-top: 20px;
+}
+
+/* Responsive adjustment for mobile */
+@media (max-width: 850px) {
+    .compare-container {
+        grid-template-columns: 1fr;
+    }
+}
+
+.chart-wrapper {
+    background: var(--card-bg);
+    padding: 15px;
+    border-radius: 12px;
+    border: 1px solid var(--border-color);
+    box-shadow: inset 0 0 10px rgba(0,0,0,0.02);
+    min-height: 350px;
+}
+
+/* ================= RADAR SECTION SPECIFIC ================= */
+.radar-controls {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 15px;
+}
+
+/* Styling the Select2 and buttons inside comparison */
+.compare-container select, 
+.compare-container button {
+    margin: 5px 0;
+}
+
+.otherrecommended {
+    border-left: 5px solid var(--secondary-color);
+    background: linear-gradient(to right, rgba(64, 145, 108, 0.1), transparent);
+    font-style: italic;
+}
+/* ================= PREMIUM BACKGROUND ================= */
+body.dark {
+    --bg-light: #0b1120;
+    --card-bg: #111827;
+    --text-main: #f3f4f6;
+    --text-muted: #9ca3af;
+    --border-color: #1f2937;
+}
+
+body.dark {
+    background: #0b1120;
+    color: var(--text-main);
+}
+
+/* ================= PAGE FADE ANIMATION ================= */
+section {
+    animation: fadeSlideUp 0.6s ease forwards;
+    opacity: 0;
+}
+
+@keyframes fadeSlideUp {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+/* ================= CARD HOVER EFFECT ================= */
+section:hover,
+.kpi-card:hover,
+.chart-wrapper:hover {
+    transform: translateY(-6px);
+    box-shadow: 0 12px 25px rgba(204, 25, 25, 0.12);
+    transition: 0.3s ease;
+}
+/* ================= GLASS EFFECT ================= */
+section,
+.kpi-card,
+.chart-wrapper {
+    backdrop-filter: blur(8px);
+    background: rgba(255, 255, 255, 0.75);
+}
+
+body.dark section,
+body.dark .kpi-card,
+body.dark .chart-wrapper {
+    background: rgba(30, 30, 30, 0.8);
+}
+button:not(.top-btn) {
+    position: relative;
+    overflow: hidden;
+}
+
+button:not(.top-btn)::after {
+    content: "";
+    position: absolute;
+    width: 0%;
+    height: 100%;
+    left: 0;
+    top: 0;
+    background: rgba(255,255,255,0.15);
+    transition: 0.4s;
+}
+
+button:not(.top-btn):hover::after {
+    width: 100%;
+}
+/* ================= MODERN TABLE ================= */
+tbody tr:nth-child(even) {
+    background: rgba(0,0,0,0.03);
+}
+
+body.dark tbody tr:nth-child(even) {
+    background: rgba(255,255,255,0.05);
+}
+
+tbody tr:hover {
+    background: var(--accent-color);
+    color: var(--primary-color);
+    transition: 0.3s;
+}
+.kpi-card span {
+    animation: pulseGlow 2s infinite;
+}
+
+@keyframes pulseGlow {
+    0% { text-shadow: 0 0 0px rgba(64,145,108,0.5); }
+    50% { text-shadow: 0 0 12px rgba(64,145,108,0.7); }
+    100% { text-shadow: 0 0 0px rgba(64,145,108,0.5); }
+}
+html {
+    scroll-behavior: smooth;
+}
+:root {
+    --primary-color: #0f172a;         /* Deep enterprise navy */
+    --secondary-color: #2563eb;       /* Stripe blue */
+    --accent-color: #22c55e;          /* Eco green accent */
+    --ai-glow: #8b5cf6;               /* Futuristic purple glow */
+
+    --bg-light: #f9fafb;
+    --card-bg: #ffffff;
+    --text-main: #0f172a;
+    --text-muted: #64748b;
+    --border-color: #e2e8f0;
+
+    --shadow-soft: 0 4px 20px rgba(0,0,0,0.05);
+    --shadow-hover: 0 10px 40px rgba(0,0,0,0.08);
+
+    --radius: 14px;
+}
+body {
+    background: radial-gradient(circle at top left, #f0fdf4, transparent 40%),
+                radial-gradient(circle at bottom right, #eff6ff, transparent 40%),
+                #f9fafb;
+    font-family: 'Inter', 'Segoe UI', sans-serif;
+}
+section,
+.kpi-card,
+.chart-wrapper {
+    background: var(--card-bg);
+    border-radius: var(--radius);
+    border: 1px solid var(--border-color);
+    box-shadow: var(--shadow-soft);
+    transition: all 0.35s ease;
+}
+
+section:hover,
+.kpi-card:hover,
+.chart-wrapper:hover {
+    transform: translateY(-6px);
+    box-shadow: var(--shadow-hover);
+}
+.ai-reason,
+.otherrecommended {
+    position: relative;
+    border-left: 4px solid var(--ai-glow);
+}
+
+.ai-reason::after,
+.otherrecommended::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: var(--radius);
+    box-shadow: 0 0 40px rgba(139, 92, 246, 0.15);
+    pointer-events: none;
+}
+.kpi-card span {
+    color: var(--secondary-color);
+    font-size: 2.2rem;
+    font-weight: 700;
+}
+button:not(.top-btn) {
+    background: var(--secondary-color);
+    border-radius: 10px;
+    font-weight: 600;
+    letter-spacing: 0.3px;
+    box-shadow: 0 4px 14px rgba(37, 99, 235, 0.3);
+    transition: 0.3s ease;
+}
+
+button:not(.top-btn):hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px rgba(37, 99, 235, 0.4);
+}
+button.eco {
+    background: var(--accent-color);
+    box-shadow: 0 4px 14px rgba(34, 197, 94, 0.3);
+}
+table {
+    border-radius: var(--radius);
+    overflow: hidden;
+}
+
+th {
+    background: #f1f5f9;
+    font-weight: 600;
+}
+
+tbody tr {
+    transition: 0.25s ease;
+}
+
+tbody tr:hover {
+    background: rgba(37, 99, 235, 0.06);
+}
+body.dark th {
+    background: #1f2937;
+}
+body::before {
+    content: "";
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 3px;
+    background: linear-gradient(90deg, #22c55e, #2563eb, #8b5cf6);
+    background-size: 200% 200%;
+    animation: aiFlow 6s linear infinite;
+    z-index: 9999;
+}
+
+@keyframes aiFlow {
+    0% { background-position: 0% 50%; }
+    100% { background-position: 200% 50%; }
+}
+input, select {
+    border-radius: 10px;
+    border: 1px solid var(--border-color);
+    padding: 12px;
+    transition: 0.3s ease;
+}
+
+input:focus, select:focus {
+    outline: none;
+    border-color: var(--secondary-color);
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+}
+/* ================= KPI COLOR STYLING ================= */
+
+.kpi-card {
+    position: relative;
+    overflow: hidden;
+    border-radius: 16px;
+    transition: all 0.35s ease;
+    border: 1px solid var(--border-color);
+}
+
+/* 🌿 1st Card – Eco Score (Green) */
+.kpi-section .kpi-card:nth-child(1) {
+    border-left: 5px solid #22c55e;
+}
+
+.kpi-section .kpi-card:nth-child(1) span {
+    color: #16a34a;
+}
+
+.kpi-section .kpi-card:nth-child(1)::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(circle at top left, rgba(34,197,94,0.15), transparent 60%);
+    pointer-events: none;
+}
+
+/* 🌍 2nd Card – CO2 (Blue Enterprise Style) */
+.kpi-section .kpi-card:nth-child(2) {
+    border-left: 5px solid #2563eb;
+}
+
+.kpi-section .kpi-card:nth-child(2) span {
+    color: #1d4ed8;
+}
+
+.kpi-section .kpi-card:nth-child(2)::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(circle at top left, rgba(37,99,235,0.15), transparent 60%);
+    pointer-events: none;
+}
+
+/* 💰 3rd Card – Cost (Premium Gold) */
+.kpi-section .kpi-card:nth-child(3) {
+    border-left: 5px solid #f59e0b;
+}
+
+.kpi-section .kpi-card:nth-child(3) span {
+    color: #d97706;
+}
+
+.kpi-section .kpi-card:nth-child(3)::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(circle at top left, rgba(245,158,11,0.2), transparent 60%);
+    pointer-events: none;
+}
+
+/* ✨ Smooth Hover Lift */
+.kpi-card:hover {
+    transform: translateY(-6px);
+    box-shadow: 0 12px 40px rgba(0,0,0,0.08);
+}
+body.menu-open {
+    margin-left: 260px;
+    transition: margin 0.35s ease;
+}

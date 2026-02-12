@@ -1,1 +1,292 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>EcoPack AI</title>
+<!-- jQuery FIRST -->
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<!-- Select2 CSS -->
+<link href="https://cdn.jsdelivr.net/npm/select2@4.1.0/dist/css/select2.min.css" rel="stylesheet" />
 
+<!-- Select2 JS -->
+<script src="https://cdn.jsdelivr.net/npm/select2@4.1.0/dist/js/select2.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
+<!-- Chart.js -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+
+</head>
+
+
+<body>
+
+<!-- ================= Side Menu ================= -->
+<nav id="sideMenu" class="side-menu">
+    
+    <a href="#ai-reason">🧠 AI Reasoning</a>
+    <a href="#input">📝 Input Section</a>
+    <a href="#materials">📦 Materials</a>
+    <a href="#rejected">❌ Rejected Materials</a>
+    <a href="#compare-db">⚖️ Compare with other materials</a>
+    <a href="#kpi">📊 KPI Overview</a>
+    <a href="#cost-comparison">📈 CO₂ vs Cost</a>
+    <a href="#export">📤 Export</a>
+</nav>
+
+<!-- ================= Loader ================= -->
+<div id="loader" class="loader hidden">
+    <div class="spinner"></div>
+    <p>Analyzing sustainable materials...</p>
+</div>
+
+<!-- ================= Header ================= -->
+<header style="position:relative; padding:20px; text-align:center;">
+
+    <h1>🌱 EcoPack AI</h1>
+    <p>AI-Driven Sustainable Packaging Recommendation</p>
+
+    <!-- Top-right controls -->
+    <div style="
+        position:absolute;
+        top:15px;
+        right:20px;
+        display:flex;
+        align-items:center;
+        gap:10px;
+    ">
+
+<!-- Hamburger -->
+<button id="menuToggle" class="top-btn"
+    style="position: fixed; top: 10px; right: 80px; padding: 10px 15px; font-size: 18px; cursor: pointer; z-index: 1000;"
+    onclick="document.getElementById('sideMenu').classList.toggle('active');">
+    ☰
+</button>
+
+<!-- Dark Toggle -->
+<button id="darkToggle" class="top-btn dark-btn"
+    style="position: fixed; top: 10px; right: 10px; padding: 10px 15px; font-size: 18px; cursor: pointer; z-index: 1000;"
+    onclick="document.body.classList.toggle('dark'); this.textContent = document.body.classList.contains('dark') ? '☀️' : '🌙';">
+    🌙
+</button>
+
+    </div>
+</header>
+
+<!-- ================= Input Section ================= -->
+<section id="input" class="input-section">
+    <h2>Enter Product Requirements</h2>
+
+    <input id="category" placeholder="Product Category (Food, Electronics, Toys, Cosmetics...)">
+
+    <label>Strength Score</label>
+    <select id="strength_score">
+        <option>Low</option>
+        <option>Medium</option>
+        <option>High</option>
+    </select>
+
+    <label>Weight Capacity (kg)</label>
+    <input id="weight_capacity_kg" type="number">
+
+    <label>Biodegradability</label>
+    <select id="biodegradability_score">
+        <option>Low</option>
+        <option>Medium</option>
+        <option>High</option>
+    </select>
+
+    <label>Recyclability (%)</label>
+    <input id="recyclability_percent" type="number">
+
+    <label>Moisture Resistance</label>
+    <select id="moisture_resistance">
+        <option>Low</option>
+        <option>Medium</option>
+        <option>High</option>
+    </select>
+
+    <label>Heat Resistance</label>
+    <select id="heat_resistance">
+        <option>Low</option>
+        <option>Medium</option>
+        <option>High</option>
+    </select>
+
+    <button onclick="getRecommendations()">Get AI Recommendation</button>
+</section>
+
+<!-- ================= Materials ================= -->
+<section id="materials">
+    <h2>AI Recommended Materials</h2>
+    <table id="resultsTable">
+        <thead>
+            <tr>
+                <th>Rank</th>
+                <th>Material</th>
+                <th>Eco Score</th>
+                <th>CO₂ Emissions</th>
+                <th>Cost Index</th>
+                <th>Cost Flag</th>
+                <th>CO₂ Flag</th>
+            </tr>
+        </thead>
+        <tbody id="resultsBody"></tbody>
+    </table>
+</section>
+
+
+<!-- ================= AI Reasoning ================= -->
+<section id="ai-reason" class="ai-reason">
+    <h2>🧠 AI Reasoning</h2>
+    <p id="aiText">Enter product requirements to see AI explanation.</p>
+</section>
+
+<section id="otherrecommended" class="compare_with_other_recommended_materials">
+<h2>📈 Compare with other Recommended Materials</h2>
+
+<button onclick="compareMaterial()">Compare</button>
+
+<select id="compareMaterial"></select>
+
+<canvas id="radarChart"></canvas>
+</section>
+
+
+<section id="rejected" class="rejected_materials">
+    <h2>Rejected Materials</h2>
+    <ul id="rejectedList"></ul>
+</section>
+
+
+
+<!-- ================= KPI Section ================= -->
+<section id="kpi" class="kpi-section">
+    <div class="kpi-card">
+        <h4>Average Eco Score</h4>
+        <span id="avgEcoScore">0</span>
+    </div>
+    <div class="kpi-card">
+        <h4>Average CO₂</h4>
+        <span id="avgCO2">0</span>
+    </div>
+    <div class="kpi-card">
+        <h4>Average Cost</h4>
+        <span id="avgCost">0</span>
+    </div>
+    <style>.kpi-card {
+    position: relative;
+    overflow: hidden;
+    border-radius: 16px;
+    transition: all 0.35s ease;
+    border: 1px solid var(--border-color);
+}
+
+/* 🌿 1st Card – Eco Score (Green) */
+.kpi-section .kpi-card:nth-child(1) {
+    border-left: 5px solid #22c55e;
+}
+
+.kpi-section .kpi-card:nth-child(1) span {
+    color: #16a34a;
+}
+
+.kpi-section .kpi-card:nth-child(1)::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(circle at top left, rgba(34,197,94,0.15), transparent 60%);
+    pointer-events: none;
+}
+
+/* 🌍 2nd Card – CO2 (Blue Enterprise Style) */
+.kpi-section .kpi-card:nth-child(2) {
+    border-left: 5px solid #2563eb;
+}
+
+.kpi-section .kpi-card:nth-child(2) span {
+    color: #1d4ed8;
+}
+
+.kpi-section .kpi-card:nth-child(2)::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(circle at top left, rgba(37,99,235,0.15), transparent 60%);
+    pointer-events: none;
+}
+
+/* 💰 3rd Card – Cost (Premium Gold) */
+.kpi-section .kpi-card:nth-child(3) {
+    border-left: 5px solid #f59e0b;
+}
+
+.kpi-section .kpi-card:nth-child(3) span {
+    color: #d97706;
+}
+
+.kpi-section .kpi-card:nth-child(3)::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(circle at top left, rgba(245,158,11,0.2), transparent 60%);
+    pointer-events: none;
+}
+
+/* ✨ Smooth Hover Lift */
+.kpi-card:hover {
+    transform: translateY(-6px);
+    box-shadow: 0 12px 40px rgba(0,0,0,0.08);
+}
+</style>
+</section>
+
+<!-- ================= Comparison ================= -->
+<section id="cost-comparison">
+    <h2>CO₂ vs Cost Comparison</h2>
+
+    <div class="insights">
+        <div class="insight-card eco">
+            <h3>🌱 Lowest CO₂</h3>
+            <p id="insightCO2">—</p>
+        </div>
+        <div class="insight-card cost">
+            <h3>💰 Lowest Cost</h3>
+            <p id="insightCost">—</p>
+        </div>
+        <div class="insight-card best">
+            <h3>⭐ Best Overall</h3>
+            <p id="insightBest">—</p>
+        </div>
+    </div>
+
+    <canvas id="ecoChart"></canvas>
+</section>
+
+<section id="compare-db" class="compare_with_existing">
+    <h2>Compare with Other Materials</h2>
+
+    <select id="dbMaterialSelect" style="width:300px;"></select>
+
+    <button onclick="compareWithDatabase()">
+        Compare With AI Best
+    </button>
+
+    <canvas id="compareChart" style="height:200px; width:300%;"></canvas>
+
+</section>
+
+
+
+<!-- ================= Export ================= -->
+<div class="export-floating">
+    <button onclick="exportCSV()">Export CSV</button>
+    <button onclick="exportPDF()">Export PDF</button>
+</div>
+
+
+<script src="{{ url_for('static', filename='script.js') }}"></script>
+
+</body>
+</html>

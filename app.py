@@ -218,9 +218,9 @@ def get_materials():
         for row in rows:
             features = np.array([[ 
                 level_to_num(row[1]),
-                row[2],
+                float(row[2]),
                 level_to_num(row[3]),
-                row[4],
+                float(row[4]),
                 level_to_num(row[5]),
                 level_to_num(row[6])
             ]])
@@ -251,6 +251,7 @@ def get_materials():
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)), debug=True)
+
 
 
 

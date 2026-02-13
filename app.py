@@ -25,8 +25,10 @@ def get_db_connection():
 
 # ================= LEVEL CONVERSION =================
 def level_to_num(val):
-    return {"Low": 3, "Medium": 6, "High": 9}.get(val, val)
-
+    if isinstance(val, str):
+        val = val.strip().capitalize()
+    mapping = {"Low": 3, "Medium": 6, "High": 9}
+    return mapping.get(val, 0)
 
 # ================= HOME =================
 @app.route("/")
@@ -51,10 +53,18 @@ def predict():
         "heat_resistance"
     ]
 
-    # Validate required fields
+# Validate required fields FIRST
     for field in required_fields:
         if field not in data:
             return jsonify({"error": f"Missing field: {field}"}), 400
+
+# Now safe to convert (ONLY ONCE)
+    data["strength_score"] = int(data["strength_score"])
+    data["biodegradability_score"] = int(data["biodegradability_score"])
+    data["moisture_resistance"] = int(data["moisture_resistance"])
+    data["heat_resistance"] = int(data["heat_resistance"])
+    data["weight_capacity_kg"] = float(data["weight_capacity_kg"])
+    data["recyclability_percent"] = float(data["recyclability_percent"])
 
     weights = data.get("weights", {"cost": 1, "co2": 1})
 
@@ -240,5 +250,6 @@ def get_materials():
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)), debug=True)
+
 
 

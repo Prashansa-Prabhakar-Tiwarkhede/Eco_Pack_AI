@@ -55,12 +55,10 @@ def predict():
         "heat_resistance"
     ]
 
-# Validate required fields FIRST
     for field in required_fields:
         if field not in data:
             return jsonify({"error": f"Missing field: {field}"}), 400
 
-# Now safe to convert (ONLY ONCE)
     data["strength_score"] = int(data["strength_score"])
     data["biodegradability_score"] = int(data["biodegradability_score"])
     data["moisture_resistance"] = int(data["moisture_resistance"])
@@ -75,12 +73,12 @@ def predict():
 
     cur.execute("""
         SELECT material_name,
-       strength_score,
-       CAST(weight_capacity_kg AS REAL),
-       biodegradability_score,
-       CAST(recyclability_percent AS REAL),
-       moisture_resistance,
-       heat_resistance
+               strength_score,
+               CAST(weight_capacity_kg AS REAL),
+               biodegradability_score,
+               CAST(recyclability_percent AS REAL),
+               moisture_resistance,
+               heat_resistance
         FROM materials
     """)
 
@@ -88,61 +86,51 @@ def predict():
     cur.close()
     conn.close()
 
+    if not rows:
+        return jsonify({"error": "No materials in database"}), 500
+
     results = []
-    rejected = []
 
     for row in rows:
-        features = np.array([[ 
-            level_to_num(row[1]),
-            float(row[2]),
-            level_to_num(row[3]),
-            float(row[4]),
-            level_to_num(row[5]),
-            level_to_num(row[6])
-        ]])
+        strength = level_to_num(row[1])
+        weight = float(row[2])
+        biodeg = level_to_num(row[3])
+        recycle = float(row[4])
+        moisture = level_to_num(row[5])
+        heat = level_to_num(row[6])
 
+        features = np.array([[strength, weight, biodeg, recycle, moisture, heat]])
 
         co2 = float(co2_model.predict(features)[0])
         cost = float(cost_model.predict(features)[0])
 
-        reasons = []
+        # Penalty calculation (ranking instead of rejection)
+        penalty = 0
 
-        if level_to_num(row[1]) < data["strength_score"]:
-            reasons.append("Low Strength")
+        if strength < data["strength_score"]:
+            penalty += data["strength_score"] - strength
 
-        if float(row[2]) < data["weight_capacity_kg"]:
-            reasons.append("Insufficient Weight Capacity")
+        if weight < data["weight_capacity_kg"]:
+            penalty += data["weight_capacity_kg"] - weight
 
-        if level_to_num(row[3]) < data["biodegradability_score"]:
-            reasons.append("Low Biodegradability")
+        if biodeg < data["biodegradability_score"]:
+            penalty += data["biodegradability_score"] - biodeg
 
-        if float(row[4]) < data["recyclability_percent"]:
-            reasons.append("Low Recyclability")
+        if recycle < data["recyclability_percent"]:
+            penalty += data["recyclability_percent"] - recycle
 
-        if level_to_num(row[5]) < data["moisture_resistance"]:
-            reasons.append("Low Moisture Resistance")
+        if moisture < data["moisture_resistance"]:
+            penalty += data["moisture_resistance"] - moisture
 
-        if level_to_num(row[6]) < data["heat_resistance"]:
-            reasons.append("Low Heat Resistance")
-
-        if reasons:
-            rejected.append({
-                "material": row[0],
-                "reasons": reasons
-            })
-            continue
+        if heat < data["heat_resistance"]:
+            penalty += data["heat_resistance"] - heat
 
         results.append({
             "material": row[0],
             "predicted_co2": round(co2, 2),
             "predicted_cost": round(cost, 2),
+            "penalty": penalty,
             "confidence": random.randint(80, 95)
-        })
-
-    if not results:
-        return jsonify({
-            "error": "No materials found",
-            "rejected_materials": rejected
         })
 
     max_cost = max(r["predicted_cost"] for r in results) or 1
@@ -154,14 +142,15 @@ def predict():
 
         r["eco_score"] = round(
             weights.get("cost", 1) * cost_norm +
-            weights.get("co2", 1) * co2_norm,
+            weights.get("co2", 1) * co2_norm +
+            r["penalty"] * 0.1,
             3
         )
 
     ranked = sorted(results, key=lambda x: x["eco_score"])
 
     return jsonify({
-        "recommended_materials": ranked[:5],
+        "recommended_materials": ranked[:5]
         "rejected_materials": rejected
     })
 
@@ -253,6 +242,7 @@ def get_materials():
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)), debug=True)
+
 
 
 

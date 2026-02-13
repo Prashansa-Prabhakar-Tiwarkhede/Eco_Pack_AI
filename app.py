@@ -92,12 +92,13 @@ def predict():
     for row in rows:
         features = np.array([[ 
             level_to_num(row[1]),
-            row[2],
+            float(row[2]),
             level_to_num(row[3]),
-            row[4],
+            float(row[4]),
             level_to_num(row[5]),
             level_to_num(row[6])
         ]])
+
 
         co2 = float(co2_model.predict(features)[0])
         cost = float(cost_model.predict(features)[0])
@@ -107,7 +108,7 @@ def predict():
         if level_to_num(row[1]) < data["strength_score"]:
             reasons.append("Low Strength")
 
-        if row[2] < data["weight_capacity_kg"]:
+        if float(row[2]) < data["weight_capacity_kg"]:
             reasons.append("Insufficient Weight Capacity")
 
         if level_to_num(row[3]) < data["biodegradability_score"]:
@@ -250,6 +251,7 @@ def get_materials():
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)), debug=True)
+
 
 
 

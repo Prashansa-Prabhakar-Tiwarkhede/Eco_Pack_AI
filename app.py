@@ -2,9 +2,9 @@ from flask import Flask, request, jsonify, render_template
 import joblib
 import numpy as np
 import os
-import psycopg2
+
 import sqlite3
-from config import Config
+
 import random
 
 app = Flask(__name__)
@@ -73,12 +73,12 @@ def predict():
 
     cur.execute("""
         SELECT material_name,
-               strength_score,
-               weight_capacity_kg,
-               biodegradability_score,
-               recyclability_percent,
-               moisture_resistance,
-               heat_resistance
+       strength_score,
+       CAST(weight_capacity_kg AS REAL),
+       biodegradability_score,
+       CAST(recyclability_percent AS REAL),
+       moisture_resistance,
+       heat_resistance
         FROM materials
     """)
 
@@ -114,7 +114,7 @@ def predict():
         if level_to_num(row[3]) < data["biodegradability_score"]:
             reasons.append("Low Biodegradability")
 
-        if row[4] < data["recyclability_percent"]:
+        if float(row[4]) < data["recyclability_percent"]:
             reasons.append("Low Recyclability")
 
         if level_to_num(row[5]) < data["moisture_resistance"]:
@@ -251,6 +251,7 @@ def get_materials():
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)), debug=True)
+
 
 
 

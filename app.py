@@ -150,8 +150,7 @@ def predict():
     ranked = sorted(results, key=lambda x: x["eco_score"])
 
     return jsonify({
-        "recommended_materials": ranked[:5],
-        "rejected_materials": rejected
+        "recommended_materials": ranked[:5]
     })
 
 
@@ -242,6 +241,7 @@ def get_materials():
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)), debug=True)
+
 
 
 

@@ -13,6 +13,8 @@ app = Flask(__name__)
 co2_model = joblib.load("co2_model.pkl")
 cost_model = joblib.load("cost_model.pkl")
 
+co2_model.n_jobs = 1
+cost_model.n_jobs = 1
 
 # ================= DB CONNECTION =================
 def get_db_connection():
@@ -251,6 +253,7 @@ def get_materials():
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)), debug=True)
+
 
 
 

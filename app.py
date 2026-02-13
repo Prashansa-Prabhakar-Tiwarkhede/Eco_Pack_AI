@@ -3,6 +3,7 @@ import joblib
 import numpy as np
 import os
 import psycopg2
+import sqlite3
 from config import Config
 import random
 
@@ -15,13 +16,11 @@ cost_model = joblib.load("cost_model.pkl")
 
 # ================= DB CONNECTION =================
 def get_db_connection():
-    return psycopg2.connect(
-        dbname=Config.DB_NAME,
-        user=Config.DB_USER,
-        password=Config.DB_PASSWORD,
-        host=Config.DB_HOST,
-        port=Config.DB_PORT
-    )
+    db_path = os.path.join(os.getcwd(), "Eco_Pack.db")
+    conn = sqlite3.connect(db_path)
+    conn.row_factory = sqlite3.Row
+    return conn
+
 
 
 # ================= LEVEL CONVERSION =================
@@ -166,8 +165,9 @@ def save_report():
     cur.execute("""
         INSERT INTO user_reports
         (product_category, selected_material, eco_score, predicted_co2, predicted_cost)
-        VALUES (%s,%s,%s,%s,%s)
+        VALUES (?,?,?,?,?)
     """, (
+
         data["product_category"],
         data["material"],
         data["eco_score"],
@@ -240,4 +240,5 @@ def get_materials():
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)), debug=True)
+
 

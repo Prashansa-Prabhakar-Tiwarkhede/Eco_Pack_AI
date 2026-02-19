@@ -74,6 +74,41 @@
     </div>
 </header>
 
+<div style="text-align:center; margin-top:30px;">
+    <button onclick="goToDashboard()" 
+        style="
+        padding:12px 25px;
+        font-size:16px;
+        border:none;
+        border-radius:8px;
+        background:#16a34a;
+        color:white;
+        cursor:pointer;">
+        📊 View Enterprise BI Dashboard
+    </button>
+</div>
+
+<div style="text-align:center; margin-top:20px;">
+    <button onclick="window.location.href='{{ url_for('recommendation_dashboard') }}'"
+    style="
+        padding:12px 25px;
+        font-size:16px;
+        border:none;
+        border-radius:8px;
+        background:#16a34a;
+        color:white;
+        cursor:pointer;">
+        🎯 View Recommendation Dashboard
+    </button>
+</div>
+
+
+<script>
+function goToDashboard() {
+    window.location.href = "/dashboard";
+}
+</script>
+
 <!-- ================= Input Section ================= -->
 <section id="input" class="input-section">
     <h2>Enter Product Requirements</h2>
@@ -241,7 +276,6 @@
 }
 </style>
 </section>
-
 <!-- ================= Comparison ================= -->
 <section id="cost-comparison">
     <h2>CO₂ vs Cost Comparison</h2>
@@ -285,6 +319,9 @@
     <button onclick="exportPDF()">Export PDF</button>
 </div>
 
+<button id="saveReportBtn" onclick="saveReport()">
+    Save Report
+</button>
 
 <script src="{{ url_for('static', filename='script.js') }}"></script>
 

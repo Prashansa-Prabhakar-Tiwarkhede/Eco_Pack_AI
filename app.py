@@ -6,7 +6,7 @@ import sqlite3
 import random
 
 app = Flask(__name__)
-app.secret_key = "supersecretkey"  # Required for sessions
+app.secret_key = os.environ.get("SECRET_KEY", "fallback_key_for_local_dev")
 
 # ================= PATHS =================
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -300,3 +300,4 @@ def recommendation_dashboard():
 # ================= RUN APP =================
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)), debug=True)
+

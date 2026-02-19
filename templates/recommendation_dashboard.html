@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>EcoPack AI - Recommendation Summary</title>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/jspdf"></script>
+
+    <style>
+        body {
+            margin: 0;
+            font-family: 'Segoe UI', sans-serif;
+            transition: 0.3s;
+        }
+
+        .dark {
+            background: linear-gradient(135deg, #0f172a, #1e293b);
+            color: white;
+        }
+
+        .light {
+            background: #f1f5f9;
+            color: black;
+        }
+
+        .header {
+            padding: 15px;
+            text-align: center;
+            font-size: 22px;
+            font-weight: bold;
+            background: #0ea5e9;
+            color: white;
+        }
+
+        .container {
+            width: 80%;
+            margin: auto;
+            text-align: center;
+        }
+
+        .card {
+            margin: 20px 0;
+            padding: 25px;
+            border-radius: 12px;
+            background: rgba(255,255,255,0.1);
+            backdrop-filter: blur(10px);
+        }
+
+        .metrics {
+            display: flex;
+            justify-content: space-around;
+            margin-top: 20px;
+        }
+
+        .metric-box {
+            padding: 15px;
+            border-radius: 10px;
+            width: 25%;
+            background: rgba(0,0,0,0.2);
+        }
+
+        .metric-value {
+            font-size: 24px;
+            font-weight: bold;
+            color: #22d3ee;
+        }
+
+        .badge {
+            padding: 8px 15px;
+            border-radius: 20px;
+            font-weight: bold;
+            display: inline-block;
+            margin: 10px 0;
+        }
+
+        .excellent { background: #16a34a; }
+        .good { background: #eab308; }
+        .poor { background: #ef4444; }
+
+        button {
+            padding: 10px 20px;
+            border: none;
+            background: #22d3ee;
+            color: black;
+            font-weight: bold;
+            border-radius: 8px;
+            cursor: pointer;
+            margin: 10px;
+        }
+
+        button:hover {
+            background: #06b6d4;
+        }
+
+        .ai-text {
+            margin-top: 20px;
+            font-style: italic;
+        }
+
+        .top-buttons {
+            margin-top: 15px;
+        }
+
+    </style>
+</head>
+<body class="dark">
+
+<div class="header">
+    🌱 EcoPack AI — Sustainable Packaging Intelligence
+</div>
+
+<div class="container">
+
+    <div class="top-buttons">
+        <button onclick="toggleMode()">🌗 Toggle Dark/Light</button>
+        <button onclick="goBack()">⬅ Back</button>
+    </div>
+
+    <div class="card">
+        <h2 id="material"></h2>
+        <div id="badge"></div>
+
+        <div class="metrics">
+            <div class="metric-box">
+                CO₂ Emission
+                <div class="metric-value" id="co2"></div>
+            </div>
+            <div class="metric-box">
+                Estimated Cost
+                <div class="metric-value" id="cost"></div>
+            </div>
+            <div class="metric-box">
+                Eco Score
+                <div class="metric-value" id="eco"></div>
+            </div>
+        </div>
+
+        <canvas id="carbonChart" style="margin-top:20px;"></canvas>
+
+        <div class="ai-text" id="aiInsight"></div>
+
+        <button onclick="downloadPDF()">📄 Download PDF</button>
+        <button onclick="shareEmail()">📧 Share via Email</button>
+    </div>
+
+</div>
+
+<script>
+
+const recommendations = JSON.parse(localStorage.getItem("recommendationData"));
+
+if (!recommendations || recommendations.length === 0) {
+    document.body.innerHTML = `
+        <div style="text-align:center;margin-top:100px;font-family:sans-serif;">
+            <h2>No recommendation data found.</h2>
+            <button onclick="window.location.href='/'">
+                ⬅ Go Back to Home
+            </button>
+        </div>
+    `;
+    throw new Error("No recommendation data");
+}
+
+const best = recommendations[0];
+
+// ===== Animated Counter =====
+function animateValue(id, start, end, duration) {
+    let range = end - start;
+    let current = start;
+    let increment = end > start ? range/50 : -range/50;
+    let stepTime = duration / 50;
+    let obj = document.getElementById(id);
+
+    let timer = setInterval(function() {
+        current += increment;
+        obj.innerText = current.toFixed(2);
+        if ((increment > 0 && current >= end) || (increment < 0 && current <= end)) {
+            obj.innerText = end;
+            clearInterval(timer);
+        }
+    }, stepTime);
+}
+
+document.getElementById("material").innerText = best.material;
+
+animateValue("co2", 0, best.predicted_co2, 1000);
+animateValue("cost", 0, best.predicted_cost, 1000);
+animateValue("eco", 0, best.eco_score, 1000);
+
+// ===== Badge =====
+if (best.eco_score < 0.5) {
+    document.getElementById("badge").innerHTML =
+        `<span class="badge excellent">🌿 Excellent Sustainability</span>`;
+}
+else if (best.eco_score < 0.8) {
+    document.getElementById("badge").innerHTML =
+        `<span class="badge good">♻ Good Sustainability</span>`;
+}
+else {
+    document.getElementById("badge").innerHTML =
+        `<span class="badge poor">⚠ Needs Improvement</span>`;
+}
+
+// ===== Carbon Chart =====
+const plasticBaseline = 50;
+const carbonSaved = plasticBaseline - best.predicted_co2;
+
+new Chart(document.getElementById("carbonChart"), {
+    type: "bar",
+    data: {
+        labels: ["Plastic Baseline", best.material],
+        datasets: [{
+            label: "CO₂ Emission",
+            data: [plasticBaseline, best.predicted_co2]
+        }]
+    }
+});
+
+
+
+
+// ===== AI Explanation =====
+document.getElementById("aiInsight").innerText =
+`EcoPack AI recommends ${best.material} as the most sustainable option.
+Compared to traditional plastic packaging (baseline CO₂: ${plasticBaseline}),
+this material reduces approximately ${carbonSaved.toFixed(2)} carbon units.
+The eco score of ${best.eco_score} reflects optimized environmental impact 
+while maintaining cost efficiency.`;
+
+// ===== Dark/Light Toggle =====
+function toggleMode() {
+    const body = document.body;
+    if (body.classList.contains("dark")) {
+        body.classList.remove("dark");
+        body.classList.add("light");
+    } else {
+        body.classList.remove("light");
+        body.classList.add("dark");
+    }
+}
+
+// ===== Back Button =====
+function goBack() {
+    window.location.href = "/";  // Flask index route
+}
+
+// ===== PDF =====
+function downloadPDF() {
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF();
+
+    doc.text("EcoPack AI Recommendation Report", 20, 20);
+    doc.text(`Material: ${best.material}`, 20, 40);
+    doc.text(`CO2 Emission: ${best.predicted_co2}`, 20, 50);
+    doc.text(`Estimated Cost: ${best.predicted_cost}`, 20, 60);
+    doc.text(`Eco Score: ${best.eco_score}`, 20, 70);
+    doc.text(`Carbon Saved vs Plastic: ${carbonSaved}`, 20, 80);
+
+    doc.save("EcoPack_AI_Report.pdf");
+}
+
+// ===== Share via Email =====
+function shareEmail() {
+    const subject = "EcoPack AI Sustainability Report";
+    const body =
+`EcoPack AI Recommendation:
+
+Material: ${best.material}
+CO2 Emission: ${best.predicted_co2}
+Estimated Cost: ${best.predicted_cost}
+Eco Score: ${best.eco_score}
+Carbon Saved vs Plastic: ${carbonSaved}
+
+Generated using EcoPack AI.`;
+
+    window.location.href =
+        `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+}
+
+</script>
+
+</body>
+</html>

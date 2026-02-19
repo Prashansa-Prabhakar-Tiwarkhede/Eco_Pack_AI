@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>EcoPack AI - Enterprise BI</title>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="{{ url_for('static', filename='script.js') }}"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
+<style>
+body {
+    margin:0;
+    font-family: 'Segoe UI', sans-serif;
+    background: linear-gradient(135deg,#0f172a,#1e293b);
+    color:white;
+}
+
+.header {
+    background:#0ea5e9;
+    padding:15px;
+    text-align:center;
+    font-size:22px;
+    font-weight:bold;
+}
+
+.top-bar {
+    text-align:center;
+    margin:20px;
+}
+
+button {
+    padding:10px 20px;
+    border:none;
+    background:#22d3ee;
+    color:black;
+    font-weight:bold;
+    border-radius:8px;
+    cursor:pointer;
+    margin:5px;
+    transition:0.3s;
+}
+
+button:hover {
+    background:#06b6d4;
+    transform:scale(1.05);
+}
+
+.kpi-grid {
+    display:grid;
+    grid-template-columns: repeat(auto-fit,minmax(220px,1fr));
+    gap:25px;
+    margin:30px;
+}
+
+.card {
+    background: rgba(255,255,255,0.08);
+    backdrop-filter: blur(10px);
+    padding:25px;
+    border-radius:15px;
+    text-align:center;
+    box-shadow:0 0 15px rgba(0,0,0,0.4);
+    transition:0.3s;
+}
+
+.card:hover {
+    transform:translateY(-5px);
+    box-shadow:0 0 25px rgba(34,211,238,0.4);
+}
+
+.card h2 {
+    color:#22d3ee;
+}
+
+.chart-grid {
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:30px;
+    margin:30px;
+}
+
+@media(max-width:900px){
+    .chart-grid{
+        grid-template-columns:1fr;
+    }
+}
+
+.ai-card {
+    margin:30px;
+}
+</style>
+
+</head>
+
+<body onload="loadEnterpriseDashboard()">
+
+<div class="header">
+🌍 EcoPack AI — Enterprise Sustainability Dashboard
+</div>
+
+<div class="top-bar">
+    <button onclick="goBack()">⬅ Back to Home</button>
+    <button onclick="exportPDF()">📄 Export PDF</button>
+</div>
+
+<div class="kpi-grid">
+
+<div class="card"><h3>Total Reports</h3><h2 id="totalReports">0</h2></div>
+<div class="card"><h3>Top Material</h3><h2 id="topMaterial">-</h2></div>
+<div class="card"><h3>Avg Eco Score</h3><h2 id="avgEco">0</h2></div>
+<div class="card"><h3>CO₂ Reduction</h3><h2 id="co2Reduction">0</h2></div>
+<div class="card"><h3>Cost Savings</h3><h2 id="costSavings">0</h2></div>
+<div class="card"><h3>Better than Plastic</h3><h2 id="betterPlastic">0%</h2></div>
+
+</div>
+
+<div class="chart-grid">
+<div class="card">
+<h3>Material Usage</h3>
+<canvas id="materialChart"></canvas>
+</div>
+
+<div class="card">
+<h3>Cumulative Cost Savings</h3>
+<canvas id="costChart"></canvas>
+</div>
+</div>
+
+
+
+<script>
+
+function goBack(){
+    window.location.href="/";
+}
+
+function exportPDF(){
+
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF();
+
+    doc.setFontSize(16);
+    doc.text("EcoPack AI - Enterprise Sustainability Report", 20, 20);
+
+    doc.setFontSize(12);
+    doc.text("Total Reports: " + document.getElementById("totalReports").innerText, 20, 40);
+    doc.text("Top Material: " + document.getElementById("topMaterial").innerText, 20, 50);
+    doc.text("Avg Eco Score: " + document.getElementById("avgEco").innerText, 20, 60);
+    doc.text("CO2 Reduction: " + document.getElementById("co2Reduction").innerText, 20, 70);
+    doc.text("Cost Savings: " + document.getElementById("costSavings").innerText, 20, 80);
+    doc.text("Better than Plastic: " + document.getElementById("betterPlastic").innerText, 20, 90);
+
+    doc.save("EcoPack_Enterprise_Report.pdf");
+}
+
+</script>
+
+</body>
+</html>

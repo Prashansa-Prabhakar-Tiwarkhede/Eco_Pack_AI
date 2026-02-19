@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify, render_template
+from flask import Flask, request, jsonify, render_template, session
 import joblib
 import numpy as np
 import os
@@ -158,7 +158,7 @@ def predict():
 # ================= SAVE REPORT =================
 @app.route("/save-report", methods=["POST"])
 def save_report():
-    data = request.get_json()
+    data = request.json
 
     conn = get_db_connection()
     cur = conn.cursor()
@@ -166,15 +166,15 @@ def save_report():
     cur.execute("""
         INSERT INTO user_reports
         (product_category, selected_material, eco_score, predicted_co2, predicted_cost)
-        VALUES (?,?,?,?,?)
+        VALUES (?, ?, ?, ?, ?)
     """, (
-
         data["product_category"],
-        data["material"],
+        data["selected_material"],
         data["eco_score"],
         data["predicted_co2"],
         data["predicted_cost"]
     ))
+
 
     conn.commit()
     cur.close()
@@ -238,10 +238,149 @@ def get_materials():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
+from datetime import datetime
+
+@app.route("/dashboard_data", methods=["GET"])
+def dashboard_data():
+
+    start_date = request.args.get("start")
+    end_date = request.args.get("end")
+    material = request.args.get("material")
+
+    conn = get_db_connection()
+    cur = conn.cursor()
+
+    query = "FROM user_reports WHERE 1=1"
+    params = []
+
+    if start_date and end_date:
+        query += " AND created_at BETWEEN ? AND ?"
+        params.extend([start_date, end_date])
+
+    if material:
+        query += " AND selected_material = ?"
+        params.append(material)
+
+    # KPI Metrics
+    cur.execute(f"""
+        SELECT COUNT(*),
+               AVG(eco_score),
+               AVG(predicted_co2),
+               AVG(predicted_cost),
+               SUM(predicted_co2),
+               SUM(predicted_cost)
+        {query}
+    """, params)
+
+    result = cur.fetchone()
+
+    total_reports = result[0] or 0
+    avg_eco = round(result[1] or 0,2)
+    avg_co2 = round(result[2] or 0,2)
+    avg_cost = round(result[3] or 0,2)
+    total_co2 = result[4] or 0
+    total_cost = result[5] or 0
+
+    # Baseline comparison
+    baseline_co2 = total_reports * 50
+    baseline_cost = total_reports * 100
+
+    co2_reduction = round(baseline_co2 - total_co2,2)
+    cost_savings = round(baseline_cost - total_cost,2)
+
+    better_than_plastic = round(
+        (co2_reduction / baseline_co2 * 100) if baseline_co2 else 0,2
+    )
+
+    # Material breakdown
+    cur.execute(f"""
+        SELECT selected_material, COUNT(*)
+        {query}
+        GROUP BY selected_material
+    """, params)
+
+    rows = cur.fetchall()
+    materials = [r[0] for r in rows]
+    material_counts = [r[1] for r in rows]
+    top_material = materials[0] if materials else "N/A"
+
+    # Trend data
+    cur.execute(f"""
+        SELECT created_at, predicted_cost, predicted_co2
+        {query}
+        ORDER BY created_at
+    """, params)
+
+    trend = cur.fetchall()
+
+    cumulative_cost = []
+    cumulative_co2 = []
+    run_cost = 0
+    run_co2 = 0
+
+    for row in trend:
+        run_cost += (100 - float(row[1]))
+        run_co2 += (50 - float(row[2]))
+        cumulative_cost.append(round(run_cost,2))
+        cumulative_co2.append(round(run_co2,2))
+
+    # AI Insight
+    insight = generate_ai_insight(
+        total_reports,
+        cost_savings,
+        co2_reduction,
+        better_than_plastic
+    )
+
+    cur.close()
+    conn.close()
+
+    return jsonify({
+        "top_material": top_material,
+        "total_reports": total_reports,
+        "avg_eco": avg_eco,
+        "avg_co2": avg_co2,
+        "avg_cost": avg_cost,
+        "co2_reduction": co2_reduction,
+        "cost_savings": cost_savings,
+        "better_than_plastic": better_than_plastic,
+        "materials": materials,
+        "material_counts": material_counts,
+        "cumulative_cost": cumulative_cost,
+        "cumulative_co2": cumulative_co2,
+        "insight": insight
+    })
+    return render_template("dashboard_data.html")
+
+def generate_ai_insight(total, savings, co2, percent):
+
+    if total == 0:
+        return "No reports available yet. Generate sustainability insights by saving material recommendations."
+
+    return f"""
+    Over {total} sustainability analyses, EcoPack AI achieved 
+    ₹{savings} in estimated cost savings and avoided {co2} units of CO₂ emissions. 
+    This represents a {percent}% improvement compared to traditional plastic packaging.
+    """
+
+@app.route("/dashboard")
+def dashboard_page():
+    return render_template("dashboard_data.html")
+
+
+@app.route("/recommendation_dashboard")
+def recommendation_dashboard():
+    recommendation = session.get("recommendation")
+
+    return render_template(
+        "recommendation_dashboard.html",
+        recommendation=recommendation
+    )
+
+
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)), debug=True)
-
 
 
 

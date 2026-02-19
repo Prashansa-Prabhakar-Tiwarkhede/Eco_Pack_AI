@@ -8,6 +8,244 @@ let lastMaterials = [];
 let lastPayload = null;
 let databaseMaterials = [];
 
+let trendChartInstance = null;
+let categoryChartInstance = null;
+let materialChart, costChart;
+
+/**Enterprise JS */
+
+
+function loadEnterpriseDashboard(category=null) {
+
+    let url = "/dashboard_data";
+    if(category) url += `?material=${category}`;
+
+    fetch(url)
+    .then(res => res.json())
+    .then(data => {
+
+        document.getElementById("totalReports").innerText = data.total_reports;
+        document.getElementById("topMaterial").innerText = data.top_material;
+        document.getElementById("avgEco").innerText = data.avg_eco;
+        document.getElementById("co2Reduction").innerText = data.co2_reduction;
+        document.getElementById("costSavings").innerText = "₹ " + data.cost_savings;
+        document.getElementById("betterPlastic").innerText = data.better_than_plastic + "%";
+
+        drawMaterialChart(data);
+        drawCostChart(data);
+    });
+}
+
+
+function drawMaterialChart(data) {
+
+    const ctx = document.getElementById("materialChart").getContext("2d");
+    if(materialChart) materialChart.destroy();
+
+    materialChart = new Chart(ctx,{
+        type:'doughnut',
+        data:{
+            labels:data.materials,
+            datasets:[{data:data.material_counts}]
+        },
+        options:{
+            onClick:(evt, elements)=>{
+                if(elements.length>0){
+                    const index = elements[0].index;
+                    const selected = data.materials[index];
+                    loadEnterpriseDashboard(selected);
+                }
+            }
+        }
+    });
+}
+
+function drawCostChart(data){
+
+    const ctx = document.getElementById("costChart").getContext("2d");
+    if(costChart) costChart.destroy();
+
+    costChart = new Chart(ctx,{
+        type:'line',
+        data:{
+            labels:data.cumulative_cost.map((_,i)=>`Report ${i+1}`),
+            datasets:[
+                {label:'Cumulative INR Saved', data:data.cumulative_cost},
+                {label:'Cumulative CO₂ Avoided', data:data.cumulative_co2}
+            ]
+        }
+    });
+}
+
+function animateCounter(id, value) {
+    let start = 0;
+    const duration = 1000;
+    const increment = value / 50;
+
+    const interval = setInterval(()=>{
+        start += increment;
+        if(start >= value){
+            document.getElementById(id).innerText = value;
+            clearInterval(interval);
+        } else {
+            document.getElementById(id).innerText = start.toFixed(1);
+        }
+    }, duration/50);
+}
+
+function applyFilter() {
+
+    const start = document.getElementById("startDate").value;
+    const end = document.getElementById("endDate").value;
+
+    let url = `/dashboard_data?start=${start}&end=${end}`;
+
+    fetch(url)
+    .then(res => res.json())
+    .then(data => {
+        document.getElementById("totalReports").innerText = data.total_reports;
+        document.getElementById("avgEco").innerText = data.avg_eco;
+        document.getElementById("co2Reduction").innerText = data.co2_reduction;
+        document.getElementById("costSavings").innerText = "₹ " + data.cost_savings;
+        document.getElementById("betterPlastic").innerText = data.better_than_plastic + "%";
+
+        drawMaterialChart(data);
+        drawCostChart(data);
+    });
+}
+
+
+async function exportPDF() {
+
+    const { jsPDF } = window.jspdf;
+    const pdf = new jsPDF();
+
+    pdf.text("EcoPack Enterprise Sustainability Report", 10, 10);
+
+    pdf.text(document.getElementById("aiInsight").innerText, 10, 20);
+
+    const canvas = document.getElementById("materialChart");
+    const img = canvas.toDataURL("image/png");
+
+    pdf.addImage(img, "PNG", 10, 40, 180, 100);
+
+    pdf.save("EcoPack_Enterprise_Report.pdf");
+}
+
+/**Enterprise JS */
+
+
+
+function animateValue(id, value) {
+    const el = document.getElementById(id);
+    let start = 0;
+    const duration = 800;
+    const stepTime = 20;
+    const increment = value / (duration / stepTime);
+
+    const timer = setInterval(() => {
+        start += increment;
+        if (start >= value) {
+            el.innerText = value;
+            clearInterval(timer);
+        } else {
+            el.innerText = start.toFixed(1);
+        }
+    }, stepTime);
+}
+
+
+function loadDashboard() {
+
+    fetch("/dashboard_data")
+        .then(res => res.json())
+        .then(data => {
+
+            if (data.error) {
+                console.error(data.error);
+                return;
+            }
+
+animateValue("biTotalReports", data.total_reports);
+document.getElementById("biTopMaterial").innerText = data.top_material;
+animateValue("biAvgEco", data.avg_eco);
+animateValue("biAvgCO2", data.avg_co2);
+animateValue("biAvgCost", data.avg_cost);
+
+            drawTrendChart(data);
+            drawCategoryChart(data);
+
+        })
+        .catch(err => console.error("Dashboard error:", err));
+}
+
+function drawTrendChart(data) {
+
+    const ctx = document.getElementById("trendChart").getContext("2d");
+
+    if (trendChartInstance) trendChartInstance.destroy();
+
+    trendChartInstance = new Chart(ctx, {
+        type: "line",
+        data: {
+            labels: data.eco_trend.map((_, i) => `Report ${i+1}`),
+            datasets: [
+                { label: "Eco Score", data: data.eco_trend },
+                { label: "CO₂", data: data.co2_trend },
+                { label: "Cost", data: data.cost_trend }
+            ]
+        },
+        options: { responsive: true }
+    });
+}
+
+function drawCategoryChart(data) {
+
+    const ctx = document.getElementById("categoryChart").getContext("2d");
+
+    if (categoryChartInstance) categoryChartInstance.destroy();
+
+    categoryChartInstance = new Chart(ctx, {
+        type: "pie",
+        data: {
+            labels: data.categories,
+            datasets: [{
+                data: data.category_counts
+            }]
+        },
+        options: { responsive: true }
+    });
+}
+
+function saveReport() {
+    if (!window.lastBestMaterial) {
+        alert("Please generate recommendation first!");
+        return;
+    }
+
+    fetch("/save-report", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+            product_category: document.getElementById("category").value,
+            selected_material: window.lastBestMaterial.material,
+            eco_score: window.lastBestMaterial.eco_score,
+            predicted_co2: window.lastBestMaterial.predicted_co2,
+            predicted_cost: window.lastBestMaterial.predicted_cost
+        })
+    })
+    .then(res => res.json())
+    .then(data => {
+        alert("Report saved successfully!");
+        loadEnterpriseDashboard();
+    })
+    .catch(err => {
+        console.error(err);
+        alert("Error saving report");
+    });
+}
+
+
 /* =====================================================
    INITIAL LOAD
 ===================================================== */
@@ -17,6 +255,7 @@ function initApp() {
     initializeSelect2();
     initializeDarkMode();
     initializeSideMenu();
+    loadDashboard();
 }
 
 if (document.readyState === "loading") {
@@ -114,6 +353,11 @@ function getRecommendations() {
         }
 
         lastMaterials = data.recommended_materials || [];
+// 🔥 SAVE FOR RECOMMENDATION DASHBOARD
+localStorage.setItem(
+    "recommendationData",
+    JSON.stringify(lastMaterials)
+);
 
         if (!lastMaterials.length) {
             alert("No materials returned from AI.");
@@ -442,7 +686,10 @@ function showInsights(materials) {
 
     document.getElementById("insightBest").innerText =
         `${bestOverall.material} (Eco: ${bestOverall.eco_score})`;
-}
+    window.lastBestMaterial = bestOverall;
+
+
+    }
 
 
 /* =====================================================

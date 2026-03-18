@@ -65,12 +65,12 @@ def predict():
             return jsonify({"error": f"Missing field: {field}"}), 400
 
     # Convert types
-    data["strength_score"] = int(data["strength_score"])
-    data["biodegradability_score"] = int(data["biodegradability_score"])
-    data["moisture_resistance"] = int(data["moisture_resistance"])
-    data["heat_resistance"] = int(data["heat_resistance"])
-    data["weight_capacity_kg"] = float(data["weight_capacity_kg"])
-    data["recyclability_percent"] = float(data["recyclability_percent"])
+    data["strength_score"] = level_to_num(data["strength_score"])
+    data["biodegradability_score"] = level_to_num(data["biodegradability_score"])
+    data["moisture_resistance"] = level_to_num(data["moisture_resistance"])
+    data["heat_resistance"] = level_to_num(data["heat_resistance"])
+    data["weight_capacity_kg"] = level_to_num(data["weight_capacity_kg"])
+    data["recyclability_percent"] = level_to_num(data["recyclability_percent"])
     weights = data.get("weights", {"cost": 1, "co2": 1})
 
     # Load materials from DB

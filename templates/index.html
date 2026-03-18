@@ -74,7 +74,19 @@
     </div>
 </header>
 
-
+<div style="text-align:center; margin-top:30px;">
+    <button onclick="goToDashboard()" 
+        style="
+        padding:12px 25px;
+        font-size:16px;
+        border:none;
+        border-radius:8px;
+        background:#16a34a;
+        color:white;
+        cursor:pointer;">
+        📊 View Enterprise BI Dashboard
+    </button>
+</div>
 
 <div style="text-align:center; margin-top:20px;">
     <button onclick="window.location.href='{{ url_for('recommendation_dashboard') }}'"
@@ -162,14 +174,25 @@ function goToDashboard() {
 
 <!-- ================= AI Reasoning ================= -->
 <section id="ai-reason" class="ai-reason">
-    <h2>🧠 Reasons..</h2>
+    <h2>🧠 AI Reasoning</h2>
     <p id="aiText">Enter product requirements to see AI explanation.</p>
 </section>
 
+<section id="otherrecommended" class="compare_with_other_recommended_materials">
+<h2>📈 Compare with other Recommended Materials</h2>
+
+<button onclick="compareMaterial()">Compare</button>
+
+<select id="compareMaterial"></select>
+
+<canvas id="radarChart"></canvas>
+</section>
 
 
-
-
+<section id="rejected" class="rejected_materials">
+    <h2>Rejected Materials</h2>
+    <ul id="rejectedList"></ul>
+</section>
 
 
 

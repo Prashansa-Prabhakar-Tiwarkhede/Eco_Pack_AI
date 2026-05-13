@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+  <title>EcoPack AI — History</title>
+  <link rel="stylesheet" href="/static/css/style.css"/>
+</head>
+<body>
+<div class="page-wrapper">
+<nav class="navbar">
+  <div class="container nav-inner">
+    <a href="/" class="nav-logo"><span class="nav-logo-icon">🌿</span> EcoPack <span style="color:var(--green-primary);">AI</span></a>
+    <ul class="nav-links">
+      <li><a href="/">Analyse</a></li><li><a href="/compare">Compare</a></li>
+      <li><a href="/history" class="active">History</a></li><li><a href="/admin">Admin</a></li>
+    </ul>
+  </div>
+</nav>
+<main>
+<div class="container">
+  <div class="d-flex align-center justify-between mb-32 mt-16" style="flex-wrap:wrap;gap:16px;">
+    <div>
+      <div class="section-tag">🕑 Session History</div>
+      <h2>Past Analyses</h2>
+    </div>
+    <a href="/" class="btn btn-primary">+ New Analysis</a>
+  </div>
+
+  {% if not history %}
+  <div class="card text-center" style="padding:60px 40px;">
+    <div style="font-size:3rem;margin-bottom:16px;">📭</div>
+    <h3 style="margin-bottom:8px;">No analyses yet</h3>
+    <p style="margin-bottom:24px;">Upload a product image to get your first packaging recommendation.</p>
+    <a href="/" class="btn btn-primary btn-lg">Get Started</a>
+  </div>
+  {% else %}
+
+  <!-- Summary stats -->
+  {% set total_saved = history | sum(attribute='co2_saved') %}
+  {% set avg_score = (history | sum(attribute='score')) / (history | length) %}
+  <div class="stat-grid mb-32 stagger">
+    <div class="stat-card">
+      <div class="stat-card-label">Total Analyses</div>
+      <div class="stat-card-value text-green">{{ history | length }}</div>
+      <div class="stat-card-sub">this session</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-card-label">Total CO₂ Saved</div>
+      <div class="stat-card-value" style="color:var(--gold);">{{ "%.4f"|format(total_saved) }}</div>
+      <div class="stat-card-sub">kg across all products</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-card-label">Avg Sustainability Score</div>
+      <div class="stat-card-value text-green">{{ "%.1f"|format(avg_score) }}</div>
+      <div class="stat-card-sub">/ 100 recommended materials</div>
+    </div>
+  </div>
+
+  <!-- History cards -->
+  <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:16px;" class="stagger">
+    {% for h in history %}
+    <div class="card" style="position:relative;">
+      <div style="position:absolute;top:16px;right:16px;font-size:0.75rem;color:var(--text-muted);">#{{ loop.index }}</div>
+      <div class="badge badge-muted mb-8" style="font-size:0.72rem;">{{ h.category }}</div>
+      <h4 style="margin-bottom:12px;margin-right:32px;">{{ h.product }}</h4>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px;">
+        <div style="padding:10px;background:rgba(255,255,255,0.03);border-radius:8px;border:1px solid var(--border);">
+          <div style="font-size:0.68rem;color:var(--text-muted);margin-bottom:3px;text-transform:uppercase;letter-spacing:0.06em;">Recommended</div>
+          <div style="font-size:0.85rem;font-weight:600;color:var(--green-light);">{{ h.recommended }}</div>
+        </div>
+        <div style="padding:10px;background:rgba(255,255,255,0.03);border-radius:8px;border:1px solid var(--border);">
+          <div style="font-size:0.68rem;color:var(--text-muted);margin-bottom:3px;text-transform:uppercase;letter-spacing:0.06em;">Score</div>
+          <div style="font-size:0.85rem;font-weight:600;color:var(--gold);">{{ h.score }}/100</div>
+        </div>
+      </div>
+      <div class="score-bar-wrap"><div class="score-bar-fill bar-green" style="width:{{ h.score }}%"></div></div>
+      <div style="margin-top:10px;font-size:0.78rem;color:var(--text-muted);">
+        CO₂ saved: <span style="color:var(--green-primary);">{{ "%.5f"|format(h.co2_saved) }} kg</span>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+</div>
+</main>
+<footer class="footer">
+  <div class="container footer-inner">
+    <span class="footer-brand">🌿 EcoPack AI v2</span>
+    <div class="footer-links"><a href="/">New Analysis</a><a href="/compare">Compare</a></div>
+  </div>
+</footer>
+</div>
+<script>
+window.addEventListener('load',()=>{
+  document.querySelectorAll('.score-bar-fill').forEach(el=>{
+    const w=el.style.width; el.style.width='0%';
+    setTimeout(()=>{ el.style.width=w; },300);
+  });
+});
+</script>
+</body>
+</html>

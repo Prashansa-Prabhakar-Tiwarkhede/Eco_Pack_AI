@@ -1,0 +1,389 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+  <title>EcoPack AI — Results</title>
+  <link rel="stylesheet" href="/static/css/style.css"/>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+</head>
+<body>
+<div class="page-wrapper">
+
+<nav class="navbar">
+  <div class="container nav-inner">
+    <a href="/" class="nav-logo"><span class="nav-logo-icon">🌿</span> EcoPack <span style="color:var(--green-primary);">AI</span></a>
+    <ul class="nav-links">
+      <li><a href="/">Analyse</a></li>
+      <li><a href="/compare">Compare</a></li>
+      <li><a href="/history">History</a></li>
+      <li><a href="/admin">Admin</a></li>
+    </ul>
+  </div>
+</nav>
+
+<main>
+<div class="container">
+
+  <!-- Steps -->
+  <div class="steps-indicator" style="max-width:600px;margin:0 auto 40px;">
+    <div class="step-item completed"><div class="step-circle">✓</div><span class="step-label">Capture</span></div>
+    <div class="step-connector done"></div>
+    <div class="step-item completed"><div class="step-circle">✓</div><span class="step-label">Confirm</span></div>
+    <div class="step-connector done"></div>
+    <div class="step-item active"><div class="step-circle">3</div><span class="step-label">Results</span></div>
+  </div>
+
+  <!-- Hero result -->
+  <div class="text-center mb-32 fade-in">
+    <div class="section-tag" style="display:inline-flex;margin-bottom:14px;">🎯 Recommendation Complete</div>
+    <h2 style="margin-bottom:10px;">
+      Switch to <span style="color:var(--green-primary);">{{ prediction.recommended_material }}</span>
+    </h2>
+    <p style="max-width:600px;margin:0 auto 16px;">
+      For <strong style="color:var(--text-primary);">{{ product_name }}</strong>
+      ({{ prediction.category_used }}) — save
+      <strong style="color:var(--green-light);">{{ prediction.co2_reduction_pct }}%</strong>
+      CO₂ with a sustainability score of
+      <strong style="color:var(--gold);">{{ prediction.recommended_sustainability }}/100</strong>
+    </p>
+
+    <!-- Product image inline if available -->
+    {% if image_file %}
+    <div style="display:inline-block;margin-top:12px;border-radius:var(--radius-lg);overflow:hidden;border:1px solid var(--border);max-width:240px;">
+      <img src="/static/uploads/{{ image_file }}" alt="{{ product_name }}"
+           style="width:100%;max-height:180px;object-fit:contain;background:var(--bg-elevated);display:block;"/>
+    </div>
+    {% endif %}
+  </div>
+
+  <!-- ── Top stat strip ───────────────────────────────────────────── -->
+  <div class="stat-grid mb-32 stagger">
+    <div class="stat-card">
+      <div class="stat-card-label">Sustainability Score</div>
+      <div class="stat-card-value text-green">{{ prediction.recommended_sustainability }}</div>
+      <div class="stat-card-sub">/ 100 for recommended</div>
+      <div class="score-bar-wrap mt-8">
+        <div class="score-bar-fill bar-green" style="width:{{ prediction.recommended_sustainability }}%"></div>
+      </div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-card-label">CO₂ Saved / Unit</div>
+      <div class="stat-card-value" style="color:var(--gold);">{{ prediction.co2_saved_kg }}</div>
+      <div class="stat-card-sub">kg CO₂ per package</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-card-label">CO₂ Reduction</div>
+      <div class="stat-card-value text-green">{{ prediction.co2_reduction_pct }}%</div>
+      <div class="stat-card-sub">vs current packaging</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-card-label">Score Improvement</div>
+      <div class="stat-card-value" style="color:var(--blue);">
+        {% if prediction.sustainability_improvement > 0 %}+{% endif %}{{ prediction.sustainability_improvement }}
+      </div>
+      <div class="stat-card-sub">sustainability points gained</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-card-label">AI Confidence</div>
+      <div class="stat-card-value" style="color:var(--blue);">{{ (prediction.confidence * 100) | round(1) }}%</div>
+      <div class="stat-card-sub">model certainty</div>
+    </div>
+  </div>
+
+  <!-- ── Material Comparison ──────────────────────────────────────── -->
+  <div class="section-tag mb-16">📦 Material Comparison</div>
+  <div class="comparison-grid mb-32">
+
+    <!-- Current -->
+    <div class="card material-card-current">
+      <div class="d-flex align-center gap-10 mb-16">
+        <span style="font-size:1.6rem;">❌</span>
+        <div>
+          <div style="font-size:0.7rem;letter-spacing:0.08em;text-transform:uppercase;color:var(--text-muted);">Current Packaging</div>
+          <div class="material-title" style="color:#ff9090;margin-bottom:0;">{{ prediction.current_material }}</div>
+        </div>
+      </div>
+      {% set cp = prediction.current_props %}
+      <div class="metric-row"><span class="metric-label">CO₂ Factor</span><span class="metric-value text-red">{{ cp.co2_factor }} kg/kg</span></div>
+      <div class="metric-row"><span class="metric-label">CO₂ per unit</span><span class="metric-value text-red">{{ prediction.current_co2 }} kg</span></div>
+      <div class="metric-row">
+        <span class="metric-label">Recyclability</span>
+        <span class="metric-value" style="color:{{ 'var(--green-primary)' if cp.recycle > 0.7 else 'var(--amber)' }}">{{ (cp.recycle*100)|round(0)|int }}%</span>
+      </div>
+      <div class="metric-row">
+        <span class="metric-label">Biodegradability</span>
+        <span class="metric-value" style="color:{{ 'var(--green-primary)' if cp.bio > 0.5 else 'var(--red)' }}">{{ (cp.bio*100)|round(0)|int }}%</span>
+      </div>
+      <div class="metric-row"><span class="metric-label">Durability</span><span class="metric-value">{{ (cp.dur*100)|round(0)|int }}%</span></div>
+      <div class="metric-row"><span class="metric-label">Cost Factor</span><span class="metric-value">${{ cp.cost_factor }}/unit</span></div>
+      <div class="metric-row">
+        <span class="metric-label">Sustainability Score</span>
+        <span class="metric-value text-red">{{ prediction.current_sustainability }}/100</span>
+      </div>
+      <div class="score-bar-wrap mt-12">
+        <div class="score-bar-fill bar-red" style="width:{{ prediction.current_sustainability }}%"></div>
+      </div>
+    </div>
+
+    <!-- VS -->
+    <div class="vs-divider"><div class="vs-badge">VS</div></div>
+
+    <!-- Recommended -->
+    <div class="card material-card-recommended">
+      <div class="d-flex align-center gap-10 mb-16">
+        <span style="font-size:1.6rem;">✅</span>
+        <div>
+          <div style="font-size:0.7rem;letter-spacing:0.08em;text-transform:uppercase;color:var(--text-muted);">Recommended Packaging</div>
+          <div class="material-title" style="color:var(--green-light);margin-bottom:0;">{{ prediction.recommended_material }}</div>
+        </div>
+      </div>
+      {% set rp = prediction.recommended_props %}
+      <div class="metric-row"><span class="metric-label">CO₂ Factor</span><span class="metric-value text-green">{{ rp.co2_factor }} kg/kg</span></div>
+      <div class="metric-row"><span class="metric-label">CO₂ per unit</span><span class="metric-value text-green">{{ prediction.recommended_co2 }} kg</span></div>
+      <div class="metric-row">
+        <span class="metric-label">Recyclability</span>
+        <span class="metric-value" style="color:{{ 'var(--green-primary)' if rp.recycle > 0.7 else 'var(--amber)' }}">{{ (rp.recycle*100)|round(0)|int }}%</span>
+      </div>
+      <div class="metric-row">
+        <span class="metric-label">Biodegradability</span>
+        <span class="metric-value" style="color:{{ 'var(--green-primary)' if rp.bio > 0.5 else 'var(--amber)' }}">{{ (rp.bio*100)|round(0)|int }}%</span>
+      </div>
+      <div class="metric-row"><span class="metric-label">Durability</span><span class="metric-value">{{ (rp.dur*100)|round(0)|int }}%</span></div>
+      <div class="metric-row"><span class="metric-label">Cost Factor</span><span class="metric-value">${{ rp.cost_factor }}/unit</span></div>
+      <div class="metric-row">
+        <span class="metric-label">Sustainability Score</span>
+        <span class="metric-value text-green">{{ prediction.recommended_sustainability }}/100</span>
+      </div>
+      <div class="score-bar-wrap mt-12">
+        <div class="score-bar-fill bar-green" style="width:{{ prediction.recommended_sustainability }}%"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Top 3 Alternatives ───────────────────────────────────────── -->
+  <div class="section-tag mb-16">🏆 Top 3 Recommendations</div>
+  <div class="grid-3 mb-32">
+    {% for rec in prediction.top3_recommendations %}
+    <div class="card card-elevated" style="text-align:center;{% if loop.first %}border-color:var(--green-primary);{% endif %}">
+      <div style="font-size:1.8rem;margin-bottom:10px;">{{ '🥇' if loop.first else ('🥈' if loop.index==2 else '🥉') }}</div>
+      <h4 style="color:{{ 'var(--green-light)' if loop.first else 'var(--text-primary)' }};margin-bottom:8px;">
+        {{ rec.material }}
+      </h4>
+      <div style="font-family:var(--font-mono);font-size:1.3rem;font-weight:700;color:{{ 'var(--gold)' if loop.first else 'var(--text-secondary)' }};">
+        {{ (rec.confidence * 100) | round(1) }}%
+      </div>
+      <div style="font-size:0.75rem;color:var(--text-muted);margin-top:4px;">model confidence</div>
+      <div class="score-bar-wrap mt-10">
+        <div class="score-bar-fill {{ 'bar-green' if loop.first else 'bar-gold' }}"
+             style="width:{{ (rec.confidence * 100) | round(0) }}%"></div>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+
+  <!-- ── Charts ───────────────────────────────────────────────────── -->
+  <div class="section-tag mb-16">📊 Visual Analysis</div>
+  <div class="grid-2 mb-24">
+    <div class="chart-container">
+      <div class="chart-title">Material Properties — Radar</div>
+      <canvas id="radarChart" style="max-height:300px;"></canvas>
+    </div>
+    <div class="chart-container">
+      <div class="chart-title">CO₂ Emissions per Unit (kg)</div>
+      <canvas id="co2Chart" style="max-height:300px;"></canvas>
+    </div>
+  </div>
+  <div class="grid-2 mb-32">
+    <div class="chart-container">
+      <div class="chart-title">Sustainability Score Breakdown (Recommended)</div>
+      <canvas id="sustainChart" style="max-height:280px;"></canvas>
+    </div>
+    <div class="chart-container">
+      <div class="chart-title">Top 3 Recommendations — Confidence</div>
+      <canvas id="confidenceChart" style="max-height:280px;"></canvas>
+    </div>
+  </div>
+
+  <!-- ── Transport CO₂ ─────────────────────────────────────────────── -->
+  <div class="section-tag mb-16">🚚 Transport CO₂</div>
+  <div class="card mb-32">
+    <div class="grid-3">
+      <div class="stat-card">
+        <div class="stat-card-label">Distance</div>
+        <div class="stat-card-value text-secondary">{{ prediction.transport.distance_km }}</div>
+        <div class="stat-card-sub">km</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-card-label">Mode</div>
+        <div class="stat-card-value" style="font-size:1.4rem;text-transform:capitalize;">{{ prediction.transport.mode }}</div>
+        <div class="stat-card-sub">factor: {{ prediction.transport.factor }} kg CO₂/t·km</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-card-label">Transport CO₂</div>
+        <div class="stat-card-value text-gold">{{ prediction.transport.transport_co2_kg }}</div>
+        <div class="stat-card-sub">kg CO₂ this shipment</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Gemini AI summary ─────────────────────────────────────────── -->
+  {% if gemini and not gemini.error %}
+  <div class="section-tag mb-16">🤖 AI Product Intelligence</div>
+  <div class="card mb-32">
+    <div class="grid-2">
+      <div>
+        <h4 style="margin-bottom:16px;">Gemini Analysis</h4>
+        <div class="analysis-grid">
+          <div class="analysis-item"><div class="analysis-item-label">Detected Name</div><div class="analysis-item-value">{{ gemini.name or '—' }}</div></div>
+          <div class="analysis-item"><div class="analysis-item-label">Category</div><div class="analysis-item-value">{{ gemini.category or '—' }}</div></div>
+          <div class="analysis-item"><div class="analysis-item-label">Current Packaging</div><div class="analysis-item-value">{{ gemini.material or '—' }}</div></div>
+          <div class="analysis-item"><div class="analysis-item-label">Fragility</div><div class="analysis-item-value">{{ gemini.fragility or '—' }}</div></div>
+          {% if gemini.packaging_notes %}
+          <div class="analysis-item" style="grid-column:span 2;">
+            <div class="analysis-item-label">Packaging Notes</div>
+            <div class="analysis-item-value" style="font-size:0.85rem;color:var(--text-secondary);">{{ gemini.packaging_notes }}</div>
+          </div>
+          {% endif %}
+        </div>
+      </div>
+      <div>
+        <h4 style="margin-bottom:16px;">Engineered Features</h4>
+        {% set ef = prediction.engineered_features %}
+        <div class="analysis-grid">
+          <div class="analysis-item"><div class="analysis-item-label">Category (normalised)</div><div class="analysis-item-value">{{ ef.category }}</div></div>
+          <div class="analysis-item"><div class="analysis-item-label">Material (normalised)</div><div class="analysis-item-value">{{ ef.material }}</div></div>
+          <div class="analysis-item"><div class="analysis-item-label">Weight</div><div class="analysis-item-value">{{ ef.weight_g }}g</div></div>
+          <div class="analysis-item"><div class="analysis-item-label">Fragility Score</div><div class="analysis-item-value">{{ ef.fragility }}/3</div></div>
+          <div class="analysis-item"><div class="analysis-item-label">Input Sus. Score</div><div class="analysis-item-value text-green">{{ ef.sustainability_score }}/100</div></div>
+          <div class="analysis-item"><div class="analysis-item-label">CO₂ Input</div><div class="analysis-item-value">{{ ef.co2 }} kg</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- ── CTA ──────────────────────────────────────────────────────── -->
+  <div class="text-center mb-32 fade-in">
+    <div class="card" style="display:inline-block;padding:32px 48px;max-width:600px;width:100%;">
+      <h3 style="margin-bottom:8px;">✅ Analysis Complete</h3>
+      <p style="margin-bottom:24px;">Ready to implement sustainable packaging?</p>
+      <div class="d-flex gap-16" style="justify-content:center;flex-wrap:wrap;">
+        <a href="/" class="btn btn-primary btn-lg">🔄 Analyse Another</a>
+        <a href="/compare" class="btn btn-outline btn-lg">⚖️ Compare Materials</a>
+        <a href="/history" class="btn btn-outline btn-lg">🕑 View History</a>
+        <button class="btn btn-gold btn-lg" onclick="window.print()">🖨️ Print Report</button>
+      </div>
+    </div>
+  </div>
+
+</div>
+</main>
+
+<footer class="footer">
+  <div class="container footer-inner">
+    <span class="footer-brand">🌿 EcoPack AI v2 — Sustainable Intelligence Platform</span>
+    <div class="footer-links">
+      <a href="/">New Analysis</a>
+      <a href="/compare">Compare</a>
+      <a href="/admin">Admin</a>
+    </div>
+  </div>
+</footer>
+</div>
+<div id="toast-container"></div>
+
+<script>
+Chart.defaults.color='#9eb8a2';
+Chart.defaults.borderColor='rgba(74,160,90,0.15)';
+Chart.defaults.font.family="'DM Sans',sans-serif";
+
+const GREEN='#3dba5e', RED='#e05555', GOLD='#c9a84c', BLUE='#5aace8';
+const pred = {{ prediction | tojson }};
+const cp = pred.current_props;
+const rp = pred.recommended_props;
+
+// 1. Radar
+new Chart(document.getElementById('radarChart'),{
+  type:'radar',
+  data:{
+    labels:['Recyclability','Biodegradability','CO₂ Efficiency','Durability','Cost Efficiency'],
+    datasets:[
+      {label:pred.current_material,
+       data:[cp.recycle*100,cp.bio*100,Math.max(0,100-cp.co2_factor*10),cp.dur*100,Math.max(0,100-cp.cost_factor*30)],
+       borderColor:RED,backgroundColor:'rgba(224,85,85,0.12)',pointBackgroundColor:RED,borderWidth:2},
+      {label:pred.recommended_material,
+       data:[rp.recycle*100,rp.bio*100,Math.max(0,100-rp.co2_factor*10),rp.dur*100,Math.max(0,100-rp.cost_factor*30)],
+       borderColor:GREEN,backgroundColor:'rgba(61,186,94,0.12)',pointBackgroundColor:GREEN,borderWidth:2},
+    ]
+  },
+  options:{responsive:true,
+    scales:{r:{min:0,max:100,grid:{color:'rgba(74,160,90,0.12)'},
+               ticks:{backdropColor:'transparent',stepSize:25},
+               pointLabels:{font:{size:11}}}},
+    plugins:{legend:{position:'bottom'}}}
+});
+
+// 2. CO2 bar
+new Chart(document.getElementById('co2Chart'),{
+  type:'bar',
+  data:{
+    labels:[pred.current_material,pred.recommended_material],
+    datasets:[{
+      label:'CO₂ (kg)',
+      data:[pred.current_co2,pred.recommended_co2],
+      backgroundColor:['rgba(224,85,85,0.75)','rgba(61,186,94,0.75)'],
+      borderColor:[RED,GREEN],borderWidth:2,borderRadius:8,
+    }]
+  },
+  options:{responsive:true,
+    plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>` ${c.parsed.y.toFixed(5)} kg CO₂`}}},
+    scales:{y:{beginAtZero:true,grid:{color:'rgba(74,160,90,0.1)'}},x:{grid:{display:false}}}}
+});
+
+// 3. Sustainability doughnut
+const recS=rp.recycle*35, bioS=rp.bio*30;
+const co2S=(1/(1+rp.co2_factor))*20*5, costS=(1/(1+rp.cost_factor))*15*3;
+new Chart(document.getElementById('sustainChart'),{
+  type:'doughnut',
+  data:{
+    labels:['Recyclability (35%)','Biodegradability (30%)','CO₂ Eff. (20%)','Cost Eff. (15%)'],
+    datasets:[{
+      data:[recS,bioS,co2S,costS],
+      backgroundColor:['rgba(61,186,94,0.85)','rgba(110,232,154,0.75)','rgba(201,168,76,0.75)','rgba(90,172,232,0.75)'],
+      borderColor:['#0f1a12'],borderWidth:3,
+    }]
+  },
+  options:{responsive:true,cutout:'62%',
+    plugins:{legend:{position:'bottom',labels:{boxWidth:12,font:{size:11}}},
+             tooltip:{callbacks:{label:c=>` ${c.label}: ${c.parsed.toFixed(1)}pts`}}}}
+});
+
+// 4. Top 3 confidence horizontal bar
+const top3=pred.top3_recommendations;
+new Chart(document.getElementById('confidenceChart'),{
+  type:'bar',
+  data:{
+    labels:top3.map(t=>t.material),
+    datasets:[{
+      label:'Confidence',
+      data:top3.map(t=>+(t.confidence*100).toFixed(1)),
+      backgroundColor:['rgba(61,186,94,0.85)','rgba(201,168,76,0.65)','rgba(90,172,232,0.55)'],
+      borderColor:[GREEN,GOLD,BLUE],borderWidth:2,borderRadius:6,
+    }]
+  },
+  options:{indexAxis:'y',responsive:true,
+    plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>` ${c.parsed.x}% confidence`}}},
+    scales:{x:{beginAtZero:true,max:100,grid:{color:'rgba(74,160,90,0.1)'}},y:{grid:{display:false}}}}
+});
+
+// Animate score bars on load
+window.addEventListener('load',()=>{
+  document.querySelectorAll('.score-bar-fill').forEach(el=>{
+    const w=el.style.width; el.style.width='0%';
+    setTimeout(()=>{ el.style.width=w; },200);
+  });
+});
+</script>
+</body>
+</html>

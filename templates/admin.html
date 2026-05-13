@@ -1,1 +1,360 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+  <title>EcoPack AI — Admin Panel</title>
+  <link rel="stylesheet" href="/static/css/style.css"/>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+</head>
+<body>
+<div class="page-wrapper">
+<nav class="navbar">
+  <div class="container nav-inner">
+    <a href="/" class="nav-logo"><span class="nav-logo-icon">🌿</span> EcoPack <span style="color:var(--green-primary);">AI</span></a>
+    <ul class="nav-links">
+      <li><a href="/">Analyse</a></li><li><a href="/compare">Compare</a></li>
+      <li><a href="/history">History</a></li><li><a href="/admin" class="active">Admin</a></li>
+    </ul>
+  </div>
+</nav>
+<main>
+<div class="container">
 
+  <div class="d-flex align-center justify-between mb-32 mt-16" style="flex-wrap:wrap;gap:16px;">
+    <div>
+      <div class="section-tag">🛠️ Administration</div>
+      <h2>Dataset & Material Management</h2>
+    </div>
+    <div class="d-flex gap-12">
+      <a href="/api/health" class="btn btn-outline btn-sm" target="_blank">🟢 API Health</a>
+      <a href="/" class="btn btn-primary btn-sm">← Back to App</a>
+    </div>
+  </div>
+
+  <!-- Dataset stats -->
+  {% if stats.error %}
+  <div class="alert alert-error mb-24">❌ Dataset error: {{ stats.error }}</div>
+  {% else %}
+  <div class="stat-grid mb-32 stagger">
+    <div class="stat-card">
+      <div class="stat-card-label">Total Rows</div>
+      <div class="stat-card-value text-green">{{ stats.total_rows }}</div>
+      <div class="stat-card-sub">training samples</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-card-label">Categories</div>
+      <div class="stat-card-value" style="color:var(--gold);">{{ stats.categories }}</div>
+      <div class="stat-card-sub">unique product categories</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-card-label">Materials</div>
+      <div class="stat-card-value" style="color:var(--blue);">{{ stats.materials }}</div>
+      <div class="stat-card-sub">packaging types in dataset</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-card-label">Missing Data</div>
+      <div class="stat-card-value" style="color:var(--amber);">{{ stats.missing_pct }}%</div>
+      <div class="stat-card-sub">avg. nulls (realistic noise)</div>
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- Material catalogue -->
+  <div class="section-tag mb-16">🧪 Material Properties Database</div>
+  <div class="card mb-32">
+    <div class="d-flex align-center justify-between mb-20" style="flex-wrap:wrap;gap:12px;">
+      <h4>All Packaging Materials ({{ materials | length }})</h4>
+      <div class="d-flex gap-12">
+        <input type="text" id="matSearch" placeholder="🔍 Search…"
+               class="form-control" style="max-width:200px;" oninput="filterMaterials()"/>
+        <select id="matSort" class="form-control" style="max-width:160px;" onchange="sortTable()">
+          <option value="name">Sort: Name</option>
+          <option value="co2">Sort: CO₂ ↑</option>
+          <option value="score">Sort: Eco Score ↓</option>
+          <option value="recycle">Sort: Recyclability ↓</option>
+        </select>
+      </div>
+    </div>
+    <div class="overflow-x-auto">
+      <table class="data-table" id="matTable">
+        <thead>
+          <tr>
+            <th>Material</th>
+            <th>CO₂ Factor</th>
+            <th>Cost/unit</th>
+            <th>Recyclability</th>
+            <th>Biodegradability</th>
+            <th>Durability</th>
+            <th>Eco Score</th>
+            <th>Category Fit</th>
+          </tr>
+        </thead>
+        <tbody id="matTbody">
+          {% for name, props in materials.items() %}
+          {% set eco = ((props.recycle * 35 + props.bio * 30 + (1/(1+props.co2_factor))*20 + (1/(1+props.cost_factor))*15)) | round(1) %}
+          <tr class="mat-row"
+              data-name="{{ name }}"
+              data-co2="{{ props.co2_factor }}"
+              data-score="{{ eco }}"
+              data-recycle="{{ props.recycle }}">
+            <td style="color:var(--text-primary);font-weight:600;font-family:var(--font-body);">{{ name }}</td>
+            <td>
+              <span style="color:{{ 'var(--green-primary)' if props.co2_factor < 1 else ('var(--amber)' if props.co2_factor < 4 else 'var(--red)') }};font-family:var(--font-mono);">
+                {{ props.co2_factor }}
+              </span>
+              <span style="color:var(--text-muted);font-size:0.75rem;"> kg/kg</span>
+            </td>
+            <td style="font-family:var(--font-mono);">${{ props.cost_factor }}</td>
+            <td>
+              <div style="display:flex;align-items:center;gap:8px;">
+                <div class="score-bar-wrap" style="width:56px;">
+                  <div class="score-bar-fill bar-green" style="width:{{ (props.recycle*100)|int }}%"></div>
+                </div>
+                <span style="font-family:var(--font-mono);font-size:0.82rem;">{{ (props.recycle*100)|round(0)|int }}%</span>
+              </div>
+            </td>
+            <td>
+              <div style="display:flex;align-items:center;gap:8px;">
+                <div class="score-bar-wrap" style="width:56px;">
+                  <div class="score-bar-fill bar-blue" style="width:{{ (props.bio*100)|int }}%"></div>
+                </div>
+                <span style="font-family:var(--font-mono);font-size:0.82rem;">{{ (props.bio*100)|round(0)|int }}%</span>
+              </div>
+            </td>
+            <td style="font-family:var(--font-mono);">{{ (props.dur*100)|round(0)|int }}%</td>
+            <td>
+              <span class="badge {{ 'badge-green' if eco > 50 else ('badge-gold' if eco > 30 else 'badge-red') }}">
+                {{ eco }}/100
+              </span>
+            </td>
+            <td>
+              <button class="btn btn-sm btn-outline" style="font-size:0.72rem;padding:4px 10px;"
+                      onclick="showCategories('{{ name }}')">
+                View →
+              </button>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Charts row -->
+  <div class="section-tag mb-16">📈 Material Analytics</div>
+  <div class="grid-2 mb-32">
+    <div class="chart-container">
+      <div class="chart-title">CO₂ Emission Factors by Material</div>
+      <canvas id="co2BarChart" style="max-height:360px;"></canvas>
+    </div>
+    <div class="chart-container">
+      <div class="chart-title">Eco Score vs CO₂ (bubble = durability)</div>
+      <canvas id="bubbleChart" style="max-height:360px;"></canvas>
+    </div>
+  </div>
+
+  <!-- Dataset sample -->
+  {% if sample %}
+  <div class="section-tag mb-16">📋 Dataset Sample</div>
+  <div class="card">
+    <div class="d-flex align-center justify-between mb-16" style="flex-wrap:wrap;gap:8px;">
+      <h4>Raw Training Data Preview</h4>
+      <div class="d-flex gap-8">
+        <span class="badge badge-muted">{{ sample | length }} rows shown</span>
+        <input type="text" id="sampleSearch" placeholder="Filter rows…"
+               class="form-control" style="max-width:180px;font-size:0.82rem;" oninput="filterSample()"/>
+      </div>
+    </div>
+    <div class="overflow-x-auto">
+      <table class="data-table" id="sampleTable">
+        <thead>
+          <tr>
+            <th>#</th><th>Product Name</th><th>Category</th><th>Weight</th>
+            <th>Fragility</th><th>Current Material</th><th>CO₂ (kg)</th>
+            <th>Recyclability</th><th>Recommended</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in sample %}
+          <tr class="sample-row">
+            <td>{{ loop.index }}</td>
+            <td style="color:var(--text-primary);">{{ row.product_name }}</td>
+            <td>{{ row.product_category }}</td>
+            <td style="font-family:var(--font-mono);">{{ row.weight or '—' }}</td>
+            <td>
+              {% if row.fragility %}
+              <span class="badge {{ 'badge-green' if row.fragility=='low' else ('badge-gold' if row.fragility=='medium' else 'badge-red') }}">
+                {{ row.fragility }}
+              </span>
+              {% else %}—{% endif %}
+            </td>
+            <td>{{ row.current_material }}</td>
+            <td style="color:var(--amber);font-family:var(--font-mono);">{{ "%.4f"|format(row.co2_emission_kg) if row.co2_emission_kg else '—' }}</td>
+            <td style="font-family:var(--font-mono);">
+              {% if row.recyclability %}{{ (row.recyclability * 100)|round(0)|int }}%{% else %}—{% endif %}
+            </td>
+            <td style="color:var(--green-light);font-weight:600;">{{ row.recommended_material }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  {% endif %}
+
+</div>
+</main>
+<footer class="footer">
+  <div class="container footer-inner">
+    <span class="footer-brand">🌿 EcoPack AI v2 — Admin</span>
+    <div class="footer-links">
+      <a href="/api/materials" target="_blank">Materials JSON</a>
+      <a href="/api/health" target="_blank">Health</a>
+    </div>
+  </div>
+</footer>
+</div>
+
+<!-- Category modal -->
+<div id="catModal" style="display:none;position:fixed;inset:0;background:rgba(8,14,10,0.88);backdrop-filter:blur(8px);z-index:999;align-items:center;justify-content:center;">
+  <div class="card" style="max-width:500px;width:90%;max-height:80vh;overflow-y:auto;">
+    <div class="d-flex align-center justify-between mb-16">
+      <h4 id="modalTitle">Category Rules</h4>
+      <button class="btn btn-sm btn-outline" onclick="document.getElementById('catModal').style.display='none'">✕ Close</button>
+    </div>
+    <div id="modalContent"></div>
+  </div>
+</div>
+
+<div id="toast-container"></div>
+
+<script>
+Chart.defaults.color='#9eb8a2'; Chart.defaults.borderColor='rgba(74,160,90,0.15)';
+Chart.defaults.font.family="'DM Sans',sans-serif";
+
+const matData = {{ materials | tojson }};
+const names   = Object.keys(matData);
+const props   = Object.values(matData);
+
+const palette = ['#3dba5e','#c9a84c','#5aace8','#e05555','#6ee89a','#e8c97a',
+                 '#90d0ff','#ff9090','#4adb8a','#f5d06a','#7bc8f5','#f08080',
+                 '#52c47a','#dab845','#4a9fd5','#d04040','#2eaa50','#b89030'];
+
+// CO2 bar (horizontal)
+new Chart(document.getElementById('co2BarChart'),{
+  type:'bar',
+  data:{
+    labels:names,
+    datasets:[{
+      label:'CO₂ kg/kg',
+      data:props.map(p=>p.co2_factor),
+      backgroundColor:props.map(p=>p.co2_factor<1?'rgba(61,186,94,0.8)':p.co2_factor<4?'rgba(201,168,76,0.8)':'rgba(224,85,85,0.8)'),
+      borderWidth:0,borderRadius:5,
+    }]
+  },
+  options:{responsive:true,indexAxis:'y',
+    plugins:{legend:{display:false}},
+    scales:{x:{beginAtZero:true,grid:{color:'rgba(74,160,90,0.1)'}},y:{ticks:{font:{size:10}},grid:{display:false}}}}
+});
+
+// Bubble chart: eco score vs co2, bubble=durability
+function ecoScore(p){ return +(p.recycle*35+p.bio*30+(1/(1+p.co2_factor))*20+(1/(1+p.cost_factor))*15).toFixed(1); }
+new Chart(document.getElementById('bubbleChart'),{
+  type:'bubble',
+  data:{
+    datasets: names.map((n,i)=>({
+      label:n,
+      data:[{x:props[i].co2_factor, y:ecoScore(props[i]), r:Math.max(6,props[i].dur*18)}],
+      backgroundColor: palette[i]+'bb',
+      borderColor: palette[i],
+      borderWidth:1,
+    }))
+  },
+  options:{responsive:true,
+    plugins:{legend:{display:false},
+             tooltip:{callbacks:{label:c=>`${c.dataset.label} — CO₂:${c.parsed.x} Eco:${c.parsed.y}`}}},
+    scales:{
+      x:{title:{display:true,text:'CO₂ Factor (kg/kg)'},grid:{color:'rgba(74,160,90,0.1)'}},
+      y:{title:{display:true,text:'Eco Score (0-100)'},grid:{color:'rgba(74,160,90,0.1)'}},
+    }}
+});
+
+// Search filter for materials table
+function filterMaterials(){
+  const q=document.getElementById('matSearch').value.toLowerCase();
+  document.querySelectorAll('.mat-row').forEach(r=>{
+    r.style.display=r.textContent.toLowerCase().includes(q)?'':'none';
+  });
+}
+
+// Sort table
+function sortTable(){
+  const mode=document.getElementById('matSort').value;
+  const tbody=document.getElementById('matTbody');
+  const rows=[...tbody.querySelectorAll('.mat-row')];
+  rows.sort((a,b)=>{
+    if(mode==='name')    return a.dataset.name.localeCompare(b.dataset.name);
+    if(mode==='co2')     return parseFloat(a.dataset.co2)-parseFloat(b.dataset.co2);
+    if(mode==='score')   return parseFloat(b.dataset.score)-parseFloat(a.dataset.score);
+    if(mode==='recycle') return parseFloat(b.dataset.recycle)-parseFloat(a.dataset.recycle);
+    return 0;
+  });
+  rows.forEach(r=>tbody.appendChild(r));
+}
+
+// Sample table filter
+function filterSample(){
+  const q=document.getElementById('sampleSearch').value.toLowerCase();
+  document.querySelectorAll('.sample-row').forEach(r=>{
+    r.style.display=r.textContent.toLowerCase().includes(q)?'':'none';
+  });
+}
+
+// Category rules modal
+async function showCategories(matName){
+  document.getElementById('modalTitle').textContent='📦 '+matName+' — Category Rules';
+  document.getElementById('catModal').style.display='flex';
+  try{
+    const resp=await fetch('/api/materials-for-category?category=General');
+    // Show which categories allow this material
+    const allCats=['Food & Beverage','Electronics','Cosmetics','Pharmaceuticals',
+                   'Toys & Games','Industrial','Agriculture','Fashion & Apparel',
+                   'Household','Fresh Produce','Textile & Fabric','General'];
+    let html='<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">';
+    for(const cat of allCats){
+      const r=await fetch(`/api/materials-for-category?category=${encodeURIComponent(cat)}`);
+      const d=await r.json();
+      const allowed=d.allowed.includes(matName);
+      const preferred=d.preferred.includes(matName);
+      const banned=d.banned.includes(matName);
+      const color=preferred?'var(--green-primary)':allowed?'var(--text-secondary)':'var(--red)';
+      const icon=preferred?'⭐':allowed?'✓':'✗';
+      html+=`<div style="padding:8px 12px;border-radius:8px;border:1px solid var(--border);background:rgba(255,255,255,0.03);">
+        <span style="color:${color};font-weight:600;margin-right:6px;">${icon}</span>
+        <span style="font-size:0.82rem;">${cat}</span>
+        ${preferred?'<span class="badge badge-green" style="font-size:0.65rem;margin-left:4px;">preferred</span>':''}
+        ${banned?'<span class="badge badge-red" style="font-size:0.65rem;margin-left:4px;">banned</span>':''}
+      </div>`;
+    }
+    html+='</div>';
+    html+=`<p style="margin-top:16px;font-size:0.8rem;color:var(--text-muted);">
+      ⭐ Preferred — actively boosted by rule engine<br>
+      ✓ Allowed — eligible for recommendation<br>
+      ✗ Banned — never recommended for this category
+    </p>`;
+    document.getElementById('modalContent').innerHTML=html;
+  }catch(e){
+    document.getElementById('modalContent').innerHTML='<p class="text-muted">Could not load rules.</p>';
+  }
+}
+
+// Animate bars
+window.addEventListener('load',()=>{
+  document.querySelectorAll('.score-bar-fill').forEach(el=>{
+    const w=el.style.width; el.style.width='0%';
+    setTimeout(()=>{ el.style.width=w; },300);
+  });
+});
+</script>
+</body>
+</html>

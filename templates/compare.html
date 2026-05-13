@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+  <title>EcoPack AI — Material Comparison</title>
+  <link rel="stylesheet" href="/static/css/style.css"/>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+</head>
+<body>
+<div class="page-wrapper">
+<nav class="navbar">
+  <div class="container nav-inner">
+    <a href="/" class="nav-logo"><span class="nav-logo-icon">🌿</span> EcoPack <span style="color:var(--green-primary);">AI</span></a>
+    <ul class="nav-links">
+      <li><a href="/">Analyse</a></li><li><a href="/compare" class="active">Compare</a></li>
+      <li><a href="/history">History</a></li><li><a href="/admin">Admin</a></li>
+    </ul>
+  </div>
+</nav>
+<main>
+<div class="container">
+
+  <div class="mt-16 mb-32">
+    <div class="section-tag">⚡ Interactive Tool</div>
+    <h2 style="margin-bottom:8px;">Material Comparison Lab</h2>
+    <p>Select any product category and two materials to get a full side-by-side sustainability analysis.</p>
+  </div>
+
+  <!-- Controls -->
+  <div class="card mb-32 stagger">
+    <h4 style="margin-bottom:20px;">Configure Comparison</h4>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:16px;align-items:end;flex-wrap:wrap;" id="controlsGrid">
+      <div class="form-group" style="margin:0;">
+        <label class="form-label">Product Category</label>
+        <select id="cmpCategory" class="form-control" onchange="onCatChange()">
+          {% for cat in categories %}
+          <option value="{{ cat }}">{{ cat }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="form-group" style="margin:0;">
+        <label class="form-label">Material A (Current)</label>
+        <select id="matA" class="form-control" onchange="runComparison()">
+          {% for m in materials %}<option value="{{ m }}">{{ m }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="form-group" style="margin:0;">
+        <label class="form-label">Material B (Alternative)</label>
+        <select id="matB" class="form-control" onchange="runComparison()">
+          {% for m in materials %}<option value="{{ m }}">{{ m }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="form-group" style="margin:0;">
+        <label class="form-label">Product Weight (g)</label>
+        <input type="number" id="cmpWeight" class="form-control" value="500" min="1" oninput="runComparison()"/>
+      </div>
+    </div>
+    <div class="mt-16 d-flex gap-12 align-center" style="flex-wrap:wrap;">
+      <button class="btn btn-primary" onclick="runComparison()">⚡ Compare Now</button>
+      <button class="btn btn-outline btn-sm" onclick="loadPreset('beverage')">🍶 Beverage preset</button>
+      <button class="btn btn-outline btn-sm" onclick="loadPreset('electronics')">💻 Electronics preset</button>
+      <button class="btn btn-outline btn-sm" onclick="loadPreset('textile')">🧵 Textile preset</button>
+    </div>
+  </div>
+
+  <!-- Results (hidden until comparison runs) -->
+  <div id="cmpResults" style="display:none;">
+
+    <!-- Score cards -->
+    <div class="grid-2 mb-24" id="scoreCards"></div>
+
+    <!-- Charts -->
+    <div class="grid-2 mb-24">
+      <div class="chart-container">
+        <div class="chart-title">Radar — All Properties</div>
+        <canvas id="cmpRadar" style="max-height:300px;"></canvas>
+      </div>
+      <div class="chart-container">
+        <div class="chart-title">CO₂ Factor Comparison</div>
+        <canvas id="cmpCO2" style="max-height:300px;"></canvas>
+      </div>
+    </div>
+
+    <!-- Verdict -->
+    <div id="verdict" class="card" style="text-align:center;padding:32px;"></div>
+
+  </div>
+
+</div>
+</main>
+<footer class="footer">
+  <div class="container footer-inner">
+    <span class="footer-brand">🌿 EcoPack AI v2</span>
+    <div class="footer-links"><a href="/">New Analysis</a><a href="/admin">Admin</a></div>
+  </div>
+</footer>
+</div>
+<div id="toast-container"></div>
+<script>
+Chart.defaults.color='#9eb8a2'; Chart.defaults.borderColor='rgba(74,160,90,0.15)';
+Chart.defaults.font.family="'DM Sans',sans-serif";
+let radarChart=null, co2Chart=null;
+
+async function fetchScore(mat) {
+  const r = await fetch(`/api/quick-score?material=${encodeURIComponent(mat)}`);
+  return r.json();
+}
+
+async function runComparison() {
+  const matA = document.getElementById('matA').value;
+  const matB = document.getElementById('matB').value;
+  const wt   = parseFloat(document.getElementById('cmpWeight').value)||500;
+  const cat  = document.getElementById('cmpCategory').value;
+
+  const [a, b] = await Promise.all([fetchScore(matA), fetchScore(matB)]);
+
+  document.getElementById('cmpResults').style.display='block';
+
+  // Score cards
+  document.getElementById('scoreCards').innerHTML = [a,b].map((d,i)=>{
+    const col = i===0?'var(--red)':'var(--green-primary)';
+    const icon = i===0?'📦':'✅';
+    return `
+    <div class="card" style="border-color:${col}30;">
+      <div class="d-flex align-center gap-8 mb-12">
+        <span style="font-size:1.4rem;">${icon}</span>
+        <div>
+          <div style="font-size:0.7rem;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-muted);">${i===0?'Material A':'Material B'}</div>
+          <div style="font-family:var(--font-display);font-size:1.1rem;font-weight:700;color:${col};">${d.material}</div>
+        </div>
+      </div>
+      <div class="metric-row"><span class="metric-label">Sustainability Score</span><span class="metric-value" style="color:${col};">${d.sustainability_score}/100</span></div>
+      <div class="metric-row"><span class="metric-label">Recyclability</span><span class="metric-value">${Math.round(d.recycle*100)}%</span></div>
+      <div class="metric-row"><span class="metric-label">Biodegradability</span><span class="metric-value">${Math.round(d.bio*100)}%</span></div>
+      <div class="metric-row"><span class="metric-label">CO₂ Factor</span><span class="metric-value">${d.co2_factor} kg/kg</span></div>
+      <div class="metric-row"><span class="metric-label">Cost Factor</span><span class="metric-value">$${d.cost_factor}</span></div>
+      <div class="metric-row"><span class="metric-label">Durability</span><span class="metric-value">${Math.round(d.dur*100)}%</span></div>
+      <div class="score-bar-wrap mt-8"><div class="score-bar-fill ${i===0?'bar-red':'bar-green'}" style="width:${d.sustainability_score}%"></div></div>
+    </div>`;
+  }).join('');
+
+  // Radar
+  if(radarChart) radarChart.destroy();
+  radarChart = new Chart(document.getElementById('cmpRadar'),{
+    type:'radar',
+    data:{
+      labels:['Recyclability','Biodegradability','CO₂ Eff.','Durability','Cost Eff.'],
+      datasets:[
+        {label:a.material,data:[a.recycle*100,a.bio*100,Math.max(0,100-a.co2_factor*10),a.dur*100,Math.max(0,100-a.cost_factor*30)],
+         borderColor:'#e05555',backgroundColor:'rgba(224,85,85,0.12)',pointBackgroundColor:'#e05555',borderWidth:2},
+        {label:b.material,data:[b.recycle*100,b.bio*100,Math.max(0,100-b.co2_factor*10),b.dur*100,Math.max(0,100-b.cost_factor*30)],
+         borderColor:'#3dba5e',backgroundColor:'rgba(61,186,94,0.12)',pointBackgroundColor:'#3dba5e',borderWidth:2},
+      ]
+    },
+    options:{responsive:true,scales:{r:{min:0,max:100,grid:{color:'rgba(74,160,90,0.1)'},ticks:{backdropColor:'transparent'}}},plugins:{legend:{position:'bottom'}}}
+  });
+
+  // CO2 bar
+  if(co2Chart) co2Chart.destroy();
+  const wkg = wt/1000;
+  co2Chart = new Chart(document.getElementById('cmpCO2'),{
+    type:'bar',
+    data:{
+      labels:[a.material,b.material],
+      datasets:[{
+        label:'CO₂ per unit (kg)',
+        data:[+(a.co2_factor*wkg).toFixed(5),+(b.co2_factor*wkg).toFixed(5)],
+        backgroundColor:['rgba(224,85,85,0.7)','rgba(61,186,94,0.7)'],
+        borderColor:['#e05555','#3dba5e'],borderWidth:2,borderRadius:8,
+      }]
+    },
+    options:{responsive:true,plugins:{legend:{display:false}},
+             scales:{y:{beginAtZero:true,grid:{color:'rgba(74,160,90,0.1)'}},x:{grid:{display:false}}}}
+  });
+
+  // Verdict
+  const winner  = a.sustainability_score > b.sustainability_score ? a : b;
+  const loser   = a.sustainability_score > b.sustainability_score ? b : a;
+  const diff    = Math.abs(a.sustainability_score - b.sustainability_score).toFixed(1);
+  const co2save = Math.max(0,(loser.co2_factor - winner.co2_factor)*wkg).toFixed(5);
+  document.getElementById('verdict').innerHTML = `
+    <div style="font-size:2rem;margin-bottom:12px;">🏆</div>
+    <h3 style="color:var(--green-light);margin-bottom:8px;">${winner.material} wins</h3>
+    <p style="max-width:480px;margin:0 auto 16px;">
+      <strong style="color:var(--text-primary);">${winner.material}</strong> scores
+      <strong style="color:var(--green-primary);">${diff} points higher</strong> on sustainability.
+      Switching from <em>${loser.material}</em> would save
+      <strong style="color:var(--gold);">${co2save} kg CO₂</strong> per unit.
+    </p>
+    <a href="/" class="btn btn-primary">Analyse a Real Product →</a>
+  `;
+
+  // Animate bars
+  document.querySelectorAll('.score-bar-fill').forEach(el=>{
+    const w=el.style.width; el.style.width='0%';
+    setTimeout(()=>{ el.style.width=w; },200);
+  });
+}
+
+function loadPreset(p) {
+  const presets = {
+    beverage: {cat:'Food & Beverage', a:'Plastic (PET)', b:'Glass', wt:400},
+    electronics: {cat:'Electronics', a:'Styrofoam (EPS)', b:'Mycelium', wt:1200},
+    textile: {cat:'Textile & Fabric', a:'Plastic (PET)', b:'Recycled Cardboard', wt:800},
+  };
+  const pr = presets[p];
+  if(!pr) return;
+  setSelect('cmpCategory',pr.cat);
+  setSelect('matA',pr.a);
+  setSelect('matB',pr.b);
+  document.getElementById('cmpWeight').value = pr.wt;
+  runComparison();
+}
+
+function setSelect(id,val){
+  const sel=document.getElementById(id);
+  for(let o of sel.options){ if(o.value===val){sel.value=val;return;} }
+}
+
+async function onCatChange() {
+  const cat = document.getElementById('cmpCategory').value;
+  const resp= await fetch(`/api/materials-for-category?category=${encodeURIComponent(cat)}`);
+  const d   = await resp.json();
+  ['matA','matB'].forEach(id=>{
+    const sel=document.getElementById(id);
+    sel.innerHTML='';
+    d.preferred.forEach(m=>{const o=document.createElement('option');o.value=m;o.textContent='⭐ '+m;sel.appendChild(o);});
+    d.allowed.filter(m=>!d.preferred.includes(m)).forEach(m=>{const o=document.createElement('option');o.value=m;o.textContent=m;sel.appendChild(o);});
+  });
+  // Default: preferred[0] vs preferred[1]
+  if(d.preferred.length>1){ document.getElementById('matA').value=d.preferred[0]; document.getElementById('matB').value=d.preferred[1]; }
+}
+
+// Responsive controls grid
+function checkGrid(){
+  document.getElementById('controlsGrid').style.gridTemplateColumns=window.innerWidth<700?'1fr':'1fr 1fr 1fr 1fr';
+}
+window.addEventListener('resize',checkGrid); checkGrid();
+
+// Auto-run on load
+window.addEventListener('DOMContentLoaded',()=>{ loadPreset('beverage'); });
+</script>
+</body>
+</html>

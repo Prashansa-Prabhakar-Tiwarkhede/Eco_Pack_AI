@@ -1,0 +1,516 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+  <title>EcoPack AI — Confirm Analysis</title>
+  <link rel="stylesheet" href="/static/css/style.css"/>
+</head>
+<body>
+<div class="page-wrapper">
+<nav class="navbar">
+  <div class="container nav-inner">
+    <a href="/" class="nav-logo"><span class="nav-logo-icon">🌿</span> EcoPack <span style="color:var(--green-primary);">AI</span></a>
+    <ul class="nav-links">
+      <li><a href="/">Analyse</a></li><li><a href="/compare">Compare</a></li>
+      <li><a href="/history">History</a></li><li><a href="/admin">Admin</a></li>
+    </ul>
+  </div>
+</nav>
+<main>
+<div class="container">
+
+  <div class="steps-indicator" style="max-width:600px;margin:0 auto 40px;">
+    <div class="step-item completed"><div class="step-circle">✓</div><span class="step-label">Capture</span></div>
+    <div class="step-connector done"></div>
+    <div class="step-item active"><div class="step-circle">2</div><span class="step-label">Confirm</span></div>
+    <div class="step-connector"></div>
+    <div class="step-item"><div class="step-circle">3</div><span class="step-label">Results</span></div>
+  </div>
+
+  <div class="section-tag" style="margin-bottom:8px;">Step 2 of 3</div>
+  <h2 style="margin-bottom:6px;">Review & Confirm Product Details</h2>
+  <p style="margin-bottom:32px;">All fields below are auto-filled by Gemini AI. Review, adjust if needed, then run the recommendation engine.</p>
+
+  <!-- Auto-fill notice -->
+  <div id="autofillNotice" class="alert alert-success" style="margin-bottom:24px;display:none;">
+    ✅ <strong>Gemini AI auto-filled all fields.</strong> Review and click "Run Recommendation" when ready.
+  </div>
+
+  <div style="display:grid;grid-template-columns:320px 1fr;gap:28px;align-items:start;" id="mainGrid">
+
+    <!-- LEFT: image + AI panels -->
+    <div class="stagger">
+      <div class="card" style="padding:0;overflow:hidden;margin-bottom:16px;">
+        <img id="productImage" src="" alt="Product"
+             style="width:100%;max-height:240px;object-fit:contain;background:var(--bg-elevated);display:block;"/>
+        <div style="padding:12px 16px;border-top:1px solid var(--border);display:flex;align-items:center;gap:8px;">
+          <span id="imageSource" class="badge badge-blue">📷 Image</span>
+          <span id="geminiConfBadge" class="badge badge-green" style="display:none;"></span>
+        </div>
+      </div>
+
+      <!-- Gemini panel -->
+      <div class="card" style="margin-bottom:12px;">
+        <div class="d-flex align-center justify-between mb-12">
+          <h4 style="font-size:0.95rem;">🤖 Gemini AI Analysis</h4>
+          <span id="geminiStatus" class="badge badge-muted">Pending</span>
+        </div>
+        <div id="geminiGrid" class="analysis-grid">
+          <div class="analysis-item"><div class="analysis-item-label">Product</div><div class="analysis-item-value" id="g-name">—</div></div>
+          <div class="analysis-item"><div class="analysis-item-label">Category</div><div class="analysis-item-value" id="g-category">—</div></div>
+          <div class="analysis-item"><div class="analysis-item-label">Packaging</div><div class="analysis-item-value" id="g-material">—</div></div>
+          <div class="analysis-item"><div class="analysis-item-label">Fragility</div><div class="analysis-item-value" id="g-fragility">—</div></div>
+          <div class="analysis-item" style="grid-column:span 2;">
+            <div class="analysis-item-label">Description</div>
+            <div class="analysis-item-value" id="g-description" style="font-size:0.82rem;color:var(--text-secondary);">—</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- OpenCV panel -->
+      <div class="card">
+        <div class="d-flex align-center justify-between mb-12">
+          <h4 style="font-size:0.95rem;">🔬 OpenCV Fallback</h4>
+          <span class="badge badge-muted">Vision</span>
+        </div>
+        <div class="analysis-grid">
+          <div class="analysis-item"><div class="analysis-item-label">Shape</div><div class="analysis-item-value" id="cv-shape" style="font-size:0.82rem;">—</div></div>
+          <div class="analysis-item"><div class="analysis-item-label">Color</div><div class="analysis-item-value" id="cv-color">—</div></div>
+          <div class="analysis-item"><div class="analysis-item-label">Category Hint</div><div class="analysis-item-value" id="cv-cat">—</div></div>
+          <div class="analysis-item"><div class="analysis-item-label">Dimensions</div><div class="analysis-item-value" id="cv-dims">—</div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- RIGHT: editable form -->
+    <div class="stagger">
+      <div class="card">
+        <div class="d-flex align-center justify-between mb-20">
+          <h3>✏️ Confirm Details</h3>
+          <div class="d-flex gap-8">
+            <button class="btn btn-sm btn-outline" onclick="resetToAI()">↺ Reset to AI</button>
+          </div>
+        </div>
+
+        <!-- Product identity -->
+        <div class="grid-2">
+          <div class="form-group">
+            <label class="form-label">Product Name *
+              <span class="badge badge-green" style="margin-left:6px;font-size:0.65rem;">AI Filled</span>
+            </label>
+            <input type="text" id="productName" class="form-control" placeholder="e.g. Cotton Bedsheet Set"/>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Category *</label>
+            <select id="productCategory" class="form-control" onchange="onCategoryChange()">
+              {% for cat in categories %}
+              <option value="{{ cat }}">{{ cat }}</option>
+              {% endfor %}
+            </select>
+          </div>
+        </div>
+
+        <div class="grid-2">
+          <div class="form-group">
+            <label class="form-label">Current Packaging Material *
+              <span id="matNote" class="badge badge-gold" style="margin-left:6px;font-size:0.65rem;display:none;">Filtered for category</span>
+            </label>
+            <select id="productMaterial" class="form-control">
+              {% for m in materials %}
+              <option value="{{ m }}">{{ m }}</option>
+              {% endfor %}
+            </select>
+            <div class="form-hint" id="matHint">Select the material currently used for packaging</div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Fragility</label>
+            <div class="toggle-group" id="fragilityToggle">
+              <button class="toggle-btn" onclick="setFragility('low')">🟢 Low</button>
+              <button class="toggle-btn active" onclick="setFragility('medium')">🟡 Medium</button>
+              <button class="toggle-btn" onclick="setFragility('high')">🔴 High</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Estimated Weight (grams)</label>
+          <input type="number" id="productWeight" class="form-control" value="500" min="1" max="50000"/>
+          <div class="form-hint">Weight of fully packaged product</div>
+        </div>
+
+        <!-- Live sustainability preview -->
+        <div id="liveScore" class="card card-elevated" style="padding:16px;margin-bottom:20px;display:none;">
+          <div class="d-flex align-center justify-between">
+            <div>
+              <div style="font-size:0.72rem;letter-spacing:0.08em;text-transform:uppercase;color:var(--text-muted);">Current Material Score</div>
+              <div id="liveScoreVal" style="font-family:var(--font-display);font-size:1.8rem;font-weight:700;color:var(--amber);">—</div>
+            </div>
+            <div style="font-size:2rem;" id="liveScoreEmoji">📦</div>
+          </div>
+          <div class="score-bar-wrap mt-8"><div class="score-bar-fill bar-gold" id="liveScoreBar" style="width:0%"></div></div>
+          <div style="font-size:0.78rem;color:var(--text-muted);margin-top:6px;" id="liveScoreNote">Switch material to see its score</div>
+        </div>
+
+        <hr class="section-divider"/>
+
+        <!-- Packaging requirements -->
+        <div class="d-flex align-center gap-8 mb-16">
+          <h4>📋 Packaging Requirements</h4>
+          <span class="badge badge-gold">Optional</span>
+        </div>
+
+        <div class="grid-2">
+          <div class="form-group">
+            <div class="d-flex justify-between">
+              <label class="form-label">Biodegradability Required</label>
+              <span class="range-value" id="bioVal">50%</span>
+            </div>
+            <input type="range" class="form-range" id="biodegradability" min="0" max="100" value="50"
+                   oninput="document.getElementById('bioVal').textContent=this.value+'%'"/>
+          </div>
+          <div class="form-group">
+            <div class="d-flex justify-between">
+              <label class="form-label">Recyclability Required</label>
+              <span class="range-value" id="recycleVal">60%</span>
+            </div>
+            <input type="range" class="form-range" id="recyclability" min="0" max="100" value="60"
+                   oninput="document.getElementById('recycleVal').textContent=this.value+'%'"/>
+          </div>
+        </div>
+
+        <div class="grid-2">
+          <div class="form-group">
+            <div class="d-flex justify-between">
+              <label class="form-label">Durability / Strength</label>
+              <span class="range-value" id="durVal">70%</span>
+            </div>
+            <input type="range" class="form-range" id="durability" min="0" max="100" value="70"
+                   oninput="document.getElementById('durVal').textContent=this.value+'%'"/>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Weight Capacity (kg)</label>
+            <input type="number" id="weightCapacity" class="form-control" value="5" min="0.1" max="1000" step="0.1"/>
+          </div>
+        </div>
+
+        <div class="grid-2">
+          <div class="form-group">
+            <label class="form-label">Moisture Resistance</label>
+            <div class="toggle-group" id="moistureToggle">
+              <button class="toggle-btn" onclick="setToggle('moistureToggle',this)">Low</button>
+              <button class="toggle-btn active" onclick="setToggle('moistureToggle',this)">Medium</button>
+              <button class="toggle-btn" onclick="setToggle('moistureToggle',this)">High</button>
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Heat Resistance</label>
+            <div class="toggle-group" id="heatToggle">
+              <button class="toggle-btn active" onclick="setToggle('heatToggle',this)">Low</button>
+              <button class="toggle-btn" onclick="setToggle('heatToggle',this)">Medium</button>
+              <button class="toggle-btn" onclick="setToggle('heatToggle',this)">High</button>
+            </div>
+          </div>
+        </div>
+
+        <hr class="section-divider"/>
+
+        <div class="d-flex align-center gap-8 mb-16">
+          <h4>🚚 Transport Details</h4>
+          <span class="badge badge-muted">CO₂ Calculation</span>
+        </div>
+        <div class="grid-2">
+          <div class="form-group">
+            <label class="form-label">Distance (km)</label>
+            <input type="number" id="transportDistance" class="form-control" value="500" min="1" max="50000"/>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Transport Mode</label>
+            <select id="transportMode" class="form-control">
+              <option value="road">🚛 Road (0.096 kg CO₂/t·km)</option>
+              <option value="rail">🚂 Rail (0.028)</option>
+              <option value="sea">🚢 Sea (0.010)</option>
+              <option value="air">✈️ Air (0.602)</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="mt-24">
+          <button class="btn btn-primary btn-lg btn-block" onclick="runPrediction()">
+            ⚡ Run Packaging Recommendation
+          </button>
+          <p class="text-center text-muted mt-8" style="font-size:0.78rem;">
+            Rule-constrained ML + CO₂ engine • Results in ~1 second
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+</main>
+<footer class="footer">
+  <div class="container footer-inner">
+    <span class="footer-brand">🌿 EcoPack AI v2</span>
+    <div class="footer-links"><a href="/">← Back to Upload</a></div>
+  </div>
+</footer>
+</div>
+
+<div id="loadingOverlay" class="loading-overlay" style="display:none;">
+  <div class="spinner"></div>
+  <h3>Running ML Engine…</h3>
+  <p id="loadingMsg">Processing features and computing recommendations…</p>
+</div>
+<div id="toast-container"></div>
+
+<script>
+const geminiData = {{ gemini | tojson }};
+const opencvData = {{ opencv | tojson }};
+const imageFile  = "{{ image_file }}";
+let currentFragility = 'medium';
+let aiData = {};
+
+window.addEventListener('DOMContentLoaded', () => {
+  // Check sessionStorage for manual or upload data
+  let g = geminiData, cv = opencvData;
+
+  const stored = sessionStorage.getItem('uploadData');
+  const manualStored = sessionStorage.getItem('manualGemini');
+
+  if (manualStored) {
+    try { g = JSON.parse(manualStored); sessionStorage.removeItem('manualGemini'); } catch(e){}
+  } else if (stored) {
+    try {
+      const d = JSON.parse(stored);
+      if (d.gemini) g = d.gemini;
+      if (d.opencv) cv = d.opencv;
+      if (d.image_url) document.getElementById('productImage').src = d.image_url;
+      sessionStorage.removeItem('uploadData');
+    } catch(e){}
+  }
+
+  if (imageFile) document.getElementById('productImage').src = '/static/uploads/' + imageFile;
+
+  aiData = g;
+  populateFromAI(g, cv);
+
+  // Show autofill notice if gemini worked
+  if (g.source === 'gemini' && !g.error) {
+    document.getElementById('autofillNotice').style.display = 'flex';
+    document.getElementById('geminiStatus').textContent = '✓ AI Detected';
+    document.getElementById('geminiStatus').className = 'badge badge-green';
+    if (g.confidence) {
+      document.getElementById('geminiConfBadge').textContent = `${g.confidence} confidence`;
+      document.getElementById('geminiConfBadge').style.display = 'inline-flex';
+    }
+  } else if (g.source === 'manual') {
+    document.getElementById('geminiStatus').textContent = '✎ Manual Entry';
+    document.getElementById('geminiStatus').className = 'badge badge-gold';
+  } else {
+    document.getElementById('geminiStatus').textContent = '⚠ Fallback';
+    document.getElementById('geminiStatus').className = 'badge badge-gold';
+  }
+
+  // Attach live score listener
+  document.getElementById('productMaterial').addEventListener('change', updateLiveScore);
+  updateLiveScore();
+});
+
+function populateFromAI(g, cv) {
+  // Gemini panel
+  setText('g-name',        g.name        || 'Not detected');
+  setText('g-category',    g.category    || 'Unknown');
+  setText('g-material',    g.material    || 'Unknown');
+  setText('g-fragility',   g.fragility   || 'Unknown');
+  setText('g-description', g.description || g.packaging_notes || 'No description');
+
+  // OpenCV panel
+  setText('cv-shape', cv.shape_hint    || cv.error || '—');
+  setText('cv-color', cv.color_hint    || '—');
+  setText('cv-cat',   cv.category_hint || '—');
+  setText('cv-dims',  cv.dimensions    || '—');
+
+  // ── Form auto-fill ──────────────────────────────────────────────────
+  setVal('productName', g.name || '');
+
+  const mappedCat = g.category || 'General';
+  setFormSelect('productCategory', mappedCat);
+
+  // After setting category, filter materials
+  onCategoryChange(g.material || '');
+
+  setFragility(g.fragility || 'medium');
+  setVal('productWeight', g.weight_estimate_g || 500);
+
+  // Slider defaults from material
+  const defaults = materialDefaults(g.material || '');
+  document.getElementById('biodegradability').value = Math.round(defaults.bio * 100);
+  document.getElementById('recyclability').value    = Math.round(defaults.recycle * 100);
+  document.getElementById('bioVal').textContent     = Math.round(defaults.bio * 100) + '%';
+  document.getElementById('recycleVal').textContent = Math.round(defaults.recycle * 100) + '%';
+}
+
+async function onCategoryChange(prefillMaterial) {
+  const cat = document.getElementById('productCategory').value;
+  if (!cat) return;
+  try {
+    const resp = await fetch(`/api/materials-for-category?category=${encodeURIComponent(cat)}`);
+    const data = await resp.json();
+    const sel  = document.getElementById('productMaterial');
+    sel.innerHTML = '';
+
+    // Preferred first with star
+    data.preferred.forEach(m => {
+      const opt = document.createElement('option');
+      opt.value = m; opt.textContent = '⭐ ' + m;
+      sel.appendChild(opt);
+    });
+    // Then allowed (non-preferred)
+    data.allowed.filter(m => !data.preferred.includes(m)).forEach(m => {
+      const opt = document.createElement('option');
+      opt.value = m; opt.textContent = m;
+      sel.appendChild(opt);
+    });
+
+    // Try to set the AI-detected material
+    const target = prefillMaterial || aiData.material || '';
+    if (target) setFormSelect('productMaterial', mapMaterial(target));
+
+    document.getElementById('matNote').style.display = 'inline-flex';
+    document.getElementById('matHint').textContent =
+      `${data.preferred.length} preferred + ${data.allowed.length - data.preferred.length} compatible materials for this category`;
+
+    updateLiveScore();
+  } catch(e) { console.warn(e); }
+}
+
+async function updateLiveScore() {
+  const mat = document.getElementById('productMaterial').value;
+  if (!mat) return;
+  try {
+    const resp = await fetch(`/api/quick-score?material=${encodeURIComponent(mat)}`);
+    const d    = await resp.json();
+    const score = d.sustainability_score;
+    document.getElementById('liveScore').style.display = 'block';
+    document.getElementById('liveScoreVal').textContent = score + '/100';
+    document.getElementById('liveScoreBar').style.width = score + '%';
+    document.getElementById('liveScoreBar').className =
+      'score-bar-fill ' + (score>65?'bar-green':score>40?'bar-gold':'bar-red');
+    document.getElementById('liveScoreEmoji').textContent =
+      score>70?'🌿':score>45?'📦':'⚠️';
+    document.getElementById('liveScoreNote').textContent =
+      `CO₂: ${d.co2_factor} kg/kg • Recyclability: ${Math.round(d.recycle*100)}% • Bio: ${Math.round(d.bio*100)}%`;
+  } catch(e) {}
+}
+
+function setText(id,val){ const e=document.getElementById(id); if(e) e.textContent=val; }
+function setVal(id,val) { const e=document.getElementById(id); if(e) e.value=val; }
+
+function setFormSelect(id, val) {
+  const sel = document.getElementById(id);
+  if (!sel||!val) return;
+  const lc = val.toLowerCase();
+  for (let opt of sel.options) {
+    if (opt.value.toLowerCase().includes(lc) || lc.includes(opt.value.toLowerCase())) {
+      sel.value = opt.value; return;
+    }
+  }
+}
+
+function setFragility(val) {
+  currentFragility = val || 'medium';
+  document.querySelectorAll('#fragilityToggle .toggle-btn').forEach(b => {
+    b.classList.toggle('active', b.textContent.toLowerCase().includes(val));
+  });
+}
+
+function setToggle(groupId, btn) {
+  document.querySelectorAll(`#${groupId} .toggle-btn`).forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+}
+
+function mapMaterial(mat) {
+  const lc=(mat||'').toLowerCase();
+  const map={
+    'plastic':'Plastic (PET)','pet':'Plastic (PET)','hdpe':'Plastic (HDPE)',
+    'glass':'Glass','alumin':'Aluminum','cardboard':'Cardboard',
+    'paper':'Kraft Paper','kraft':'Kraft Paper','bioplastic':'Bioplastic (PLA)',
+    'pla':'Bioplastic (PLA)','bamboo':'Bamboo','steel':'Steel (Tinplate)',
+    'tin':'Steel (Tinplate)','styrofoam':'Styrofoam (EPS)','foam':'Styrofoam (EPS)',
+    'seaweed':'Seaweed Film','mycelium':'Mycelium','hemp':'Hemp Fiber','wood':'Wood',
+  };
+  for(const[k,v] of Object.entries(map)) if(lc.includes(k)) return v;
+  return '';
+}
+
+function materialDefaults(mat) {
+  const lc=(mat||'').toLowerCase();
+  if(lc.includes('glass'))     return{bio:0.10,recycle:0.95};
+  if(lc.includes('cardboard')) return{bio:0.75,recycle:0.88};
+  if(lc.includes('paper'))     return{bio:0.88,recycle:0.85};
+  if(lc.includes('alum'))      return{bio:0.02,recycle:0.92};
+  if(lc.includes('bamboo'))    return{bio:0.95,recycle:0.60};
+  if(lc.includes('bioplastic')||lc.includes('pla')) return{bio:0.85,recycle:0.30};
+  return{bio:0.05,recycle:0.72};
+}
+
+function resetToAI() {
+  populateFromAI(aiData, opencvData);
+  showToast('↺ Reset to AI-detected values','info');
+}
+
+async function runPrediction() {
+  const productName = document.getElementById('productName').value.trim();
+  if (!productName) { showToast('❌ Please enter a product name','error'); return; }
+
+  const payload = {
+    product_name:           productName,
+    category:               document.getElementById('productCategory').value,
+    material:               document.getElementById('productMaterial').value,
+    fragility:              currentFragility,
+    weight_g:               parseFloat(document.getElementById('productWeight').value)||500,
+    recyclability:          parseFloat(document.getElementById('recyclability').value)/100,
+    biodegradability:       parseFloat(document.getElementById('biodegradability').value)/100,
+    durability:             parseFloat(document.getElementById('durability').value)/100,
+    transport_distance_km:  parseFloat(document.getElementById('transportDistance').value)||500,
+    transport_mode:         document.getElementById('transportMode').value,
+    gemini_description:     aiData.description||'',
+  };
+
+  document.getElementById('loadingOverlay').style.display='flex';
+  const msgs=['Encoding features…','Running GradientBoosting…','Applying category rules…','Computing CO₂ scores…'];
+  let si=0;
+  const iv=setInterval(()=>{ document.getElementById('loadingMsg').textContent=msgs[si=(si+1)%msgs.length]; },800);
+
+  try {
+    const resp = await fetch('/predict',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+    const data = await resp.json();
+    clearInterval(iv);
+    document.getElementById('loadingOverlay').style.display='none';
+    if(data.success) window.location.href='/result';
+    else showToast('❌ Prediction failed: '+(data.error||'Unknown'),'error');
+  } catch(err) {
+    clearInterval(iv);
+    document.getElementById('loadingOverlay').style.display='none';
+    showToast('❌ Network error: '+err.message,'error');
+  }
+}
+
+function showToast(msg,type='info'){
+  const icons={success:'✅',error:'❌',warning:'⚠️',info:'ℹ️'};
+  const c=document.getElementById('toast-container');
+  const t=document.createElement('div');
+  t.className='toast';
+  t.innerHTML=`<span>${icons[type]}</span><span>${msg}</span>`;
+  c.appendChild(t);
+  setTimeout(()=>{t.classList.add('fade-out');setTimeout(()=>t.remove(),400);},3000);
+}
+
+// Responsive grid
+function checkGrid(){
+  document.getElementById('mainGrid').style.gridTemplateColumns=window.innerWidth<900?'1fr':'320px 1fr';
+}
+window.addEventListener('resize',checkGrid); checkGrid();
+</script>
+</body>
+</html>

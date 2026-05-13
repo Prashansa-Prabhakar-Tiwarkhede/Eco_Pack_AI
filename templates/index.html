@@ -1,0 +1,532 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+  <title>EcoPack AI — Sustainable Packaging Intelligence</title>
+  <link rel="stylesheet" href="/static/css/style.css"/>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌿</text></svg>"/>
+</head>
+<body>
+<div class="page-wrapper">
+
+<!-- ── Navbar ─────────────────────────────────────────────────────── -->
+<nav class="navbar">
+  <div class="container nav-inner">
+    <a href="/" class="nav-logo">
+      <span class="nav-logo-icon">🌿</span>
+      EcoPack <span style="color:var(--green-primary);">AI</span>
+    </a>
+    <ul class="nav-links">
+      <li><a href="/" class="active">Analyse</a></li>
+      <li><a href="/compare">Compare</a></li>
+      <li><a href="/history">History</a></li>
+      <li><a href="/admin">Admin</a></li>
+      <li><span class="nav-badge">v2</span></li>
+    </ul>
+  </div>
+</nav>
+
+<main>
+<div class="container">
+
+  <!-- Hero -->
+  <section class="hero fade-in">
+    <div class="hero-badge">🌍 AI-Powered Sustainability Engine v2</div>
+    <h1 class="hero-title">
+      Rethink Your<br/>
+      <span class="accent">Packaging</span> with<br/>
+      <span class="gold-accent">Intelligence</span>
+    </h1>
+    <p class="hero-sub">
+      Capture or upload any product image. Gemini AI identifies it, our ML engine
+      recommends the most sustainable packaging — with real CO₂ impact scores.
+    </p>
+    <div class="d-flex justify-center gap-12 mt-24" style="justify-content:center;flex-wrap:wrap;">
+      <span class="badge badge-green">🤖 Gemini Vision AI</span>
+      <span class="badge badge-blue">📷 Live Camera Capture</span>
+      <span class="badge badge-gold">📊 Rule-Constrained ML</span>
+      <span class="badge badge-muted">🌱 CO₂ Calculator</span>
+    </div>
+  </section>
+
+  <!-- Steps -->
+  <div class="steps-indicator" style="max-width:600px;margin:0 auto 48px;">
+    <div class="step-item active"><div class="step-circle">1</div><span class="step-label">Capture</span></div>
+    <div class="step-connector"></div>
+    <div class="step-item"><div class="step-circle">2</div><span class="step-label">Confirm</span></div>
+    <div class="step-connector"></div>
+    <div class="step-item"><div class="step-circle">3</div><span class="step-label">Results</span></div>
+  </div>
+
+  <div style="max-width:900px;margin:0 auto;">
+
+    <!-- ── Input mode tabs ────────────────────────────────────────── -->
+    <div class="card stagger">
+      <div class="tab-bar" style="display:flex;gap:4px;margin-bottom:28px;background:rgba(255,255,255,0.04);border-radius:12px;padding:4px;">
+        <button class="tab-btn active" id="tab-upload" onclick="switchTab('upload')">
+          📁 Upload Image
+        </button>
+        <button class="tab-btn" id="tab-camera" onclick="switchTab('camera')">
+          📷 Live Camera
+        </button>
+        <button class="tab-btn" id="tab-manual" onclick="switchTab('manual')">
+          ✏️ Manual Entry
+        </button>
+      </div>
+
+      <!-- ── TAB 1: Upload ──────────────────────────────────────── -->
+      <div id="panel-upload">
+        <div id="uploadZone" class="upload-zone"
+             ondrop="handleDrop(event)" ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)">
+          <input type="file" id="fileInput" accept="image/*" onchange="handleFileSelect(event)"/>
+          <span class="upload-icon" id="uploadIcon">📦</span>
+          <h3 id="uploadTitle">Drop your product image here</h3>
+          <p id="uploadSub">or click to browse — PNG, JPG, WebP up to 16 MB</p>
+          <div id="uploadPreview" style="display:none;margin-top:20px;">
+            <img id="previewImg" alt="Preview" style="max-height:260px;border-radius:10px;border:1px solid var(--border);"/>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── TAB 2: Camera ──────────────────────────────────────── -->
+      <div id="panel-camera" style="display:none;">
+        <div style="position:relative;border-radius:var(--radius-lg);overflow:hidden;background:#000;min-height:320px;display:flex;align-items:center;justify-content:center;" id="cameraBox">
+          <!-- Not started state -->
+          <div id="cameraStart" style="text-align:center;padding:40px;">
+            <div style="font-size:3rem;margin-bottom:16px;">📷</div>
+            <h3 style="margin-bottom:8px;">Live Camera Capture</h3>
+            <p style="margin-bottom:20px;color:var(--text-muted);">Point your camera at the product and capture</p>
+            <button class="btn btn-primary" onclick="startCamera()">🎥 Start Camera</button>
+          </div>
+          <!-- Live video feed -->
+          <video id="cameraVideo" autoplay playsinline
+                 style="display:none;width:100%;max-height:400px;object-fit:cover;"></video>
+          <!-- Captured photo -->
+          <canvas id="captureCanvas" style="display:none;width:100%;max-height:400px;object-fit:contain;"></canvas>
+        </div>
+
+        <!-- Camera controls -->
+        <div id="cameraControls" style="display:none;margin-top:16px;display:none;">
+          <div class="d-flex gap-12" style="justify-content:center;flex-wrap:wrap;">
+            <button class="btn btn-primary btn-lg" id="captureBtn" onclick="capturePhoto()">
+              📸 Capture Photo
+            </button>
+            <button class="btn btn-outline" id="retakeBtn" style="display:none;" onclick="retakePhoto()">
+              🔄 Retake
+            </button>
+            <button class="btn btn-danger btn-sm" onclick="stopCamera()">✕ Stop Camera</button>
+          </div>
+          <!-- Camera flip (mobile) -->
+          <div class="d-flex gap-8 mt-8" style="justify-content:center;">
+            <button class="btn btn-outline btn-sm" onclick="flipCamera()" id="flipBtn" style="display:none;">
+              🔄 Flip Camera
+            </button>
+            <select id="cameraSelect" class="form-control" style="max-width:220px;font-size:0.82rem;" onchange="switchCamera()">
+            </select>
+          </div>
+        </div>
+
+        <!-- Camera preview after capture -->
+        <div id="cameraPreviewWrap" style="display:none;margin-top:16px;text-align:center;">
+          <img id="cameraPreviewImg" alt="Captured" style="max-height:260px;border-radius:12px;border:1px solid var(--border-bright);box-shadow:var(--shadow-green);"/>
+          <p class="mt-8" style="color:var(--green-light);font-size:0.85rem;">✅ Photo captured — ready to analyse</p>
+        </div>
+      </div>
+
+      <!-- ── TAB 3: Manual ──────────────────────────────────────── -->
+      <div id="panel-manual" style="display:none;">
+        <div class="alert alert-info" style="margin-bottom:20px;">
+          ℹ️ No image? Describe your product manually and our ML model will recommend packaging directly.
+        </div>
+        <div class="grid-2">
+          <div class="form-group">
+            <label class="form-label">Product Name *</label>
+            <input type="text" id="manualName" class="form-control" placeholder="e.g. Cotton Bedsheet Set"/>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Product Category *</label>
+            <select id="manualCategory" class="form-control" onchange="updateManualMaterials()">
+              <option value="">Select category…</option>
+              <option>Food & Beverage</option><option>Electronics</option>
+              <option>Cosmetics</option><option>Pharmaceuticals</option>
+              <option>Toys & Games</option><option>Industrial</option>
+              <option>Agriculture</option><option>Fashion & Apparel</option>
+              <option>Household</option><option>Fresh Produce</option>
+              <option>Textile & Fabric</option><option>General</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Current Packaging Material</label>
+            <select id="manualMaterial" class="form-control">
+              <option value="Plastic (PET)">Plastic (PET)</option>
+              <option value="Cardboard">Cardboard</option>
+              <option value="Glass">Glass</option>
+              <option value="Aluminum">Aluminum</option>
+              <option value="Kraft Paper">Kraft Paper</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Fragility</label>
+            <div class="toggle-group" id="manualFragility">
+              <button class="toggle-btn" onclick="setToggleGroup('manualFragility','low',this)">🟢 Low</button>
+              <button class="toggle-btn active" onclick="setToggleGroup('manualFragility','medium',this)">🟡 Medium</button>
+              <button class="toggle-btn" onclick="setToggleGroup('manualFragility','high',this)">🔴 High</button>
+            </div>
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Product Description (optional)</label>
+          <input type="text" id="manualDesc" class="form-control" placeholder="e.g. 100% cotton double bedsheet with pillow covers"/>
+        </div>
+      </div>
+
+      <hr class="section-divider"/>
+
+      <!-- CTA -->
+      <div class="d-flex align-center justify-between" style="flex-wrap:wrap;gap:16px;">
+        <div>
+          <p class="text-muted" style="font-size:0.82rem;">🔒 Images processed locally — not stored permanently</p>
+          <p class="text-muted" style="font-size:0.82rem;margin-top:4px;" id="geminiNote">
+            ⚡ Gemini AI will auto-detect product name, category & material
+          </p>
+        </div>
+        <button id="analyseBtn" class="btn btn-primary btn-lg" onclick="analyseProduct()" disabled>
+          🔍 Analyse Product
+        </button>
+      </div>
+    </div>
+
+    <!-- Recent history strip -->
+    {% if history %}
+    <div class="mt-32 stagger">
+      <div class="d-flex align-center justify-between mb-16">
+        <div class="section-tag" style="margin:0;">🕑 Recent Analyses</div>
+        <a href="/history" class="btn btn-sm btn-outline">View All</a>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px;">
+        {% for h in history %}
+        <div class="card card-elevated" style="padding:16px;cursor:pointer;">
+          <div style="font-size:0.75rem;color:var(--text-muted);margin-bottom:4px;">{{ h.category }}</div>
+          <div style="font-weight:600;color:var(--text-primary);font-size:0.9rem;margin-bottom:8px;">{{ h.product[:28] }}</div>
+          <div class="badge badge-green" style="font-size:0.7rem;">→ {{ h.recommended[:22] }}</div>
+          <div style="margin-top:8px;font-size:0.75rem;color:var(--green-primary);">Score: {{ h.score }}/100</div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+
+    <!-- How it works -->
+    <div class="mt-32 stagger">
+      <div class="section-tag">How it works</div>
+      <div class="grid-3" style="margin-top:20px;">
+        <div class="card card-elevated text-center">
+          <div style="font-size:2rem;margin-bottom:12px;">📷</div>
+          <h4>Capture or Upload</h4>
+          <p style="font-size:0.85rem;margin-top:8px;">Use your camera live or upload a photo. Gemini Vision auto-fills all product details.</p>
+        </div>
+        <div class="card card-elevated text-center">
+          <div style="font-size:2rem;margin-bottom:12px;">⚙️</div>
+          <h4>Rule-Constrained ML</h4>
+          <p style="font-size:0.85rem;margin-top:8px;">Category-aware rules prevent impossible suggestions (bedsheets will never get Glass packaging).</p>
+        </div>
+        <div class="card card-elevated text-center">
+          <div style="font-size:2rem;margin-bottom:12px;">🌍</div>
+          <h4>CO₂ Impact Report</h4>
+          <p style="font-size:0.85rem;margin-top:8px;">Real emission factors calculate exact environmental savings vs your current packaging.</p>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+</main>
+
+<footer class="footer">
+  <div class="container footer-inner">
+    <span class="footer-brand">🌿 EcoPack AI v2 — Sustainable Intelligence Platform</span>
+    <div class="footer-links">
+      <a href="/compare">Material Comparison</a>
+      <a href="/admin">Admin</a>
+      <a href="/api/health">API</a>
+    </div>
+  </div>
+</footer>
+</div>
+
+<div id="loadingOverlay" class="loading-overlay" style="display:none;">
+  <div class="spinner"></div>
+  <h3 id="loadingTitle">Analysing Product…</h3>
+  <p id="loadingMsg">Running Gemini Vision AI…</p>
+  <div style="margin-top:16px;width:280px;background:rgba(255,255,255,0.08);border-radius:4px;height:4px;overflow:hidden;">
+    <div id="loadingBar" style="height:100%;background:linear-gradient(90deg,var(--green-dim),var(--green-primary));width:0%;transition:width 0.4s ease;border-radius:4px;"></div>
+  </div>
+</div>
+<div id="toast-container"></div>
+
+<script>
+// ─── State ────────────────────────────────────────────────────────────────
+let selectedFile   = null;
+let capturedBlob   = null;
+let currentTab     = 'upload';
+let cameraStream   = null;
+let facingMode     = 'environment';
+let cameraDevices  = [];
+
+// ─── Tab switching ────────────────────────────────────────────────────────
+function switchTab(tab) {
+  currentTab = tab;
+  ['upload','camera','manual'].forEach(t => {
+    document.getElementById('panel-'+t).style.display = t===tab ? 'block' : 'none';
+    document.getElementById('tab-'+t).classList.toggle('active', t===tab);
+  });
+  if (tab !== 'camera') stopCamera();
+  updateAnalyseBtn();
+}
+
+function updateAnalyseBtn() {
+  const btn = document.getElementById('analyseBtn');
+  if (currentTab==='upload')  btn.disabled = !selectedFile;
+  else if (currentTab==='camera') btn.disabled = !capturedBlob;
+  else btn.disabled = !document.getElementById('manualName').value.trim();
+}
+
+// ─── File upload ─────────────────────────────────────────────────────────
+function handleFileSelect(e) { const f = e.target.files[0]; if(f) loadFile(f); }
+function handleDrop(e) {
+  e.preventDefault();
+  document.getElementById('uploadZone').classList.remove('drag-over');
+  const f = e.dataTransfer.files[0];
+  if (f && f.type.startsWith('image/')) loadFile(f);
+  else showToast('❌ Please drop an image file','error');
+}
+function handleDragOver(e) { e.preventDefault(); document.getElementById('uploadZone').classList.add('drag-over'); }
+function handleDragLeave() { document.getElementById('uploadZone').classList.remove('drag-over'); }
+
+function loadFile(file) {
+  selectedFile = file;
+  const reader = new FileReader();
+  reader.onload = ev => {
+    document.getElementById('previewImg').src = ev.target.result;
+    document.getElementById('uploadPreview').style.display = 'block';
+    document.getElementById('uploadIcon').textContent = '✅';
+    document.getElementById('uploadTitle').textContent = file.name;
+    document.getElementById('uploadSub').textContent = `${(file.size/1024).toFixed(1)} KB`;
+    updateAnalyseBtn();
+    showToast('📷 Image loaded — ready to analyse!','success');
+  };
+  reader.readAsDataURL(file);
+}
+
+// ─── Camera ───────────────────────────────────────────────────────────────
+async function startCamera() {
+  try {
+    // Enumerate devices
+    const devices = await navigator.mediaDevices.enumerateDevices();
+    cameraDevices = devices.filter(d => d.kind === 'videoinput');
+    const sel = document.getElementById('cameraSelect');
+    sel.innerHTML = '';
+    cameraDevices.forEach((d,i) => {
+      const opt = document.createElement('option');
+      opt.value = d.deviceId;
+      opt.textContent = d.label || `Camera ${i+1}`;
+      sel.appendChild(opt);
+    });
+
+    await openCamera();
+    document.getElementById('cameraStart').style.display = 'none';
+    document.getElementById('cameraVideo').style.display  = 'block';
+    document.getElementById('cameraControls').style.display = 'flex';
+    if (cameraDevices.length > 1) document.getElementById('flipBtn').style.display = 'inline-flex';
+    document.getElementById('cameraSelect').style.display = cameraDevices.length>1 ? 'block':'none';
+  } catch(err) {
+    showToast('❌ Camera access denied: ' + err.message, 'error');
+    console.error(err);
+  }
+}
+
+async function openCamera(deviceId) {
+  if (cameraStream) { cameraStream.getTracks().forEach(t=>t.stop()); }
+  const constraints = {
+    video: deviceId
+      ? { deviceId: { exact: deviceId }, width:{ideal:1280}, height:{ideal:720} }
+      : { facingMode, width:{ideal:1280}, height:{ideal:720} }
+  };
+  cameraStream = await navigator.mediaDevices.getUserMedia(constraints);
+  document.getElementById('cameraVideo').srcObject = cameraStream;
+}
+
+function stopCamera() {
+  if (cameraStream) { cameraStream.getTracks().forEach(t=>t.stop()); cameraStream = null; }
+  document.getElementById('cameraVideo').style.display  = 'none';
+  document.getElementById('cameraControls').style.display = 'none';
+  document.getElementById('cameraStart').style.display  = 'block';
+}
+
+function capturePhoto() {
+  const video  = document.getElementById('cameraVideo');
+  const canvas = document.getElementById('captureCanvas');
+  canvas.width  = video.videoWidth;
+  canvas.height = video.videoHeight;
+  canvas.getContext('2d').drawImage(video, 0, 0);
+
+  canvas.toBlob(blob => {
+    capturedBlob = blob;
+    const url = URL.createObjectURL(blob);
+    document.getElementById('cameraPreviewImg').src = url;
+    document.getElementById('cameraPreviewWrap').style.display = 'block';
+    document.getElementById('captureBtn').style.display  = 'none';
+    document.getElementById('retakeBtn').style.display   = 'inline-flex';
+    stopCamera();
+    updateAnalyseBtn();
+    showToast('📸 Photo captured!','success');
+  }, 'image/jpeg', 0.92);
+}
+
+function retakePhoto() {
+  capturedBlob = null;
+  document.getElementById('cameraPreviewWrap').style.display = 'none';
+  document.getElementById('captureBtn').style.display  = 'inline-flex';
+  document.getElementById('retakeBtn').style.display   = 'none';
+  updateAnalyseBtn();
+  startCamera();
+}
+
+function flipCamera() {
+  facingMode = facingMode === 'environment' ? 'user' : 'environment';
+  openCamera();
+}
+
+function switchCamera() {
+  const deviceId = document.getElementById('cameraSelect').value;
+  openCamera(deviceId);
+}
+
+// ─── Manual entry listener ────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('manualName').addEventListener('input', updateAnalyseBtn);
+  // Tab style injection
+  const style = document.createElement('style');
+  style.textContent = `
+    .tab-btn {
+      flex:1; padding:10px 16px; border:none; border-radius:9px;
+      background:transparent; color:var(--text-secondary);
+      font-family:var(--font-body); font-size:0.85rem; font-weight:600;
+      cursor:pointer; transition:all var(--transition); white-space:nowrap;
+    }
+    .tab-btn:hover { color:var(--green-light); background:rgba(61,186,94,0.08); }
+    .tab-btn.active { background:var(--bg-elevated); color:var(--green-primary); box-shadow:var(--shadow-sm); }
+  `;
+  document.head.appendChild(style);
+});
+
+async function updateManualMaterials() {
+  const cat = document.getElementById('manualCategory').value;
+  if (!cat) return;
+  try {
+    const resp = await fetch(`/api/materials-for-category?category=${encodeURIComponent(cat)}`);
+    const data = await resp.json();
+    const sel  = document.getElementById('manualMaterial');
+    sel.innerHTML = '';
+    data.preferred.forEach(m => {
+      const opt = document.createElement('option');
+      opt.value = m; opt.textContent = '⭐ ' + m;
+      sel.appendChild(opt);
+    });
+    data.allowed.filter(m => !data.preferred.includes(m)).forEach(m => {
+      const opt = document.createElement('option');
+      opt.value = m; opt.textContent = m;
+      sel.appendChild(opt);
+    });
+    showToast(`✅ Showing ${data.allowed.length} compatible materials for ${cat}`,'info');
+  } catch(e) {}
+}
+
+function setToggleGroup(groupId, val, btn) {
+  document.querySelectorAll(`#${groupId} .toggle-btn`).forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  btn.dataset.value = val;
+  updateAnalyseBtn();
+}
+
+// ─── Main analyse function ────────────────────────────────────────────────
+async function analyseProduct() {
+  const overlay  = document.getElementById('loadingOverlay');
+  const msgEl    = document.getElementById('loadingMsg');
+  const barEl    = document.getElementById('loadingBar');
+  overlay.style.display = 'flex';
+
+  const steps = [
+    [10,'Preparing image…'],
+    [30,'Running Gemini Vision AI…'],
+    [55,'Running OpenCV analysis…'],
+    [75,'Mapping product features…'],
+    [90,'Loading confirmation page…'],
+  ];
+
+  let si = 0;
+  const iv = setInterval(() => {
+    if (si < steps.length) {
+      barEl.style.width = steps[si][0] + '%';
+      msgEl.textContent = steps[si][1];
+      si++;
+    }
+  }, 900);
+
+  try {
+    if (currentTab === 'manual') {
+      const name = document.getElementById('manualName').value.trim();
+      const cat  = document.getElementById('manualCategory').value;
+      const mat  = document.getElementById('manualMaterial').value;
+      const frag = document.querySelector('#manualFragility .toggle-btn.active')?.textContent.trim().split(' ').pop()?.toLowerCase() || 'medium';
+      const desc = document.getElementById('manualDesc').value;
+      if (!name) { clearInterval(iv); overlay.style.display='none'; showToast('❌ Enter a product name','error'); return; }
+
+      // Build synthetic gemini-like result and store, then redirect
+      const synth = { name, category: cat||'General', material: mat||'Cardboard',
+                      fragility: frag, weight_estimate_g: 500, description: desc||name, source:'manual' };
+      // Store in sessionStorage, go direct to confirm
+      sessionStorage.setItem('manualGemini', JSON.stringify(synth));
+      clearInterval(iv); barEl.style.width='100%';
+      setTimeout(()=>{ overlay.style.display='none'; window.location.href='/confirm'; }, 400);
+      return;
+    }
+
+    // Image-based flow
+    const imageSource = currentTab==='camera' ? capturedBlob : selectedFile;
+    const formData = new FormData();
+    formData.append('image', imageSource, 'product.jpg');
+
+    const resp = await fetch('/upload', { method:'POST', body:formData });
+    const data = await resp.json();
+
+    clearInterval(iv);
+    barEl.style.width = '100%';
+    overlay.style.display = 'none';
+
+    if (data.success) {
+      sessionStorage.setItem('uploadData', JSON.stringify(data));
+      window.location.href = '/confirm';
+    } else {
+      showToast('❌ '+(data.error||'Upload failed'),'error');
+    }
+  } catch(err) {
+    clearInterval(iv);
+    overlay.style.display = 'none';
+    showToast('❌ Network error: '+err.message,'error');
+  }
+}
+
+function showToast(msg, type='info') {
+  const icons={success:'✅',error:'❌',warning:'⚠️',info:'ℹ️'};
+  const c=document.getElementById('toast-container');
+  const t=document.createElement('div');
+  t.className='toast';
+  t.innerHTML=`<span>${icons[type]}</span><span>${msg}</span>`;
+  c.appendChild(t);
+  setTimeout(()=>{t.classList.add('fade-out');setTimeout(()=>t.remove(),400);},3200);
+}
+</script>
+</body>
+</html>

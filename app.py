@@ -1,303 +1,293 @@
-from flask import Flask, request, jsonify, render_template, session
-import joblib
-import numpy as np
-import os
-import sqlite3
-import random
+"""
+EcoPack Flask Application — v2
+Fixes: better Gemini prompt (packaging focus), auto-fill, camera route
+New:   /api/quick-score, /api/materials-for-category, /history
+"""
+
+import os, re, json, base64, uuid, traceback
+from flask import (Flask, render_template, request, jsonify,
+                   redirect, url_for, session, send_from_directory)
+from werkzeug.utils import secure_filename
+import pandas as pd
 
 app = Flask(__name__)
-app.secret_key = os.environ.get("SECRET_KEY", "fallback_key_for_local_dev")
+app.secret_key = os.environ.get("SECRET_KEY", "ecopack-v2-secret")
+app.config["UPLOAD_FOLDER"] = os.path.join(os.path.dirname(__file__), "static", "uploads")
+app.config["MAX_CONTENT_LENGTH"] = 16 * 1024 * 1024
+ALLOWED_EXT = {"png","jpg","jpeg","webp","gif"}
+os.makedirs(app.config["UPLOAD_FOLDER"], exist_ok=True)
 
-# ================= PATHS =================
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-CO2_MODEL_PATH = os.path.join(BASE_DIR, "co2_model.pkl")
-COST_MODEL_PATH = os.path.join(BASE_DIR, "cost_model.pkl")
-DB_PATH = os.path.join(BASE_DIR, "Eco_Pack.db")
+import sys; sys.path.insert(0, os.path.dirname(__file__))
+from utils.predictor import (predict_packaging, calculate_transport_co2,
+                              get_material_catalogue, get_category_rules,
+                              normalise_category, CATEGORY_RULES, MATERIAL_PROPS)
 
-# ================= LOAD ML MODELS =================
-try:
-    co2_model = joblib.load(CO2_MODEL_PATH)
-    cost_model = joblib.load(COST_MODEL_PATH)
-    co2_model.n_jobs = 1
-    cost_model.n_jobs = 1
-    print("Models loaded successfully!")
-except Exception as e:
-    print(f"Error loading models: {e}")
+GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY","")
 
-# ================= DB CONNECTION =================
-def get_db_connection():
-    if not os.path.exists(DB_PATH):
-        raise FileNotFoundError(f"Database not found at {DB_PATH}")
-    conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row
-    return conn
+GEMINI_PROMPT = """You are a packaging sustainability expert AI.
+Analyse this product image and return ONLY a valid JSON object (no markdown, no extra text).
 
-# ================= LEVEL CONVERSION =================
-def level_to_num(val):
-    if isinstance(val, str):
-        val = val.strip().capitalize()
-    mapping = {"Low": 3, "Medium": 6, "High": 9}
-    return mapping.get(val, 0)
+IMPORTANT: focus on what PACKAGING this product needs, NOT what the product itself is made of.
+Examples:
+- A bedsheet → needs cardboard box or polybag packaging (NOT glass)
+- A smartphone → needs cardboard box with foam inserts
+- Olive oil → comes in a glass bottle already
 
-# ================= HOME =================
-@app.route("/")
-def home():
-    return render_template("index.html")
+Return exactly this JSON:
+{
+  "name": "specific product name (e.g. 'Cotton Bedsheet Set', 'iPhone 15', 'Olive Oil 500ml')",
+  "category": "one of: Food & Beverage / Electronics / Cosmetics / Pharmaceuticals / Toys & Games / Industrial / Agriculture / Fashion & Apparel / Household / Fresh Produce / Textile & Fabric / General",
+  "material": "current packaging material (e.g. 'Cardboard', 'Plastic (PET)', 'Glass', 'Kraft Paper')",
+  "fragility": "low / medium / high",
+  "weight_estimate_g": estimated total packaged weight as integer,
+  "description": "one sentence describing the product",
+  "packaging_notes": "key packaging challenge (fragile/moisture-sensitive/heavy/bulky etc.)"
+}"""
 
-# ================= PREDICT =================
-@app.route("/predict", methods=["POST"])
-def predict():
-    data = request.get_json()
-    if not data:
-        return jsonify({"error": "Invalid input"}), 400
-
-    required_fields = [
-        "strength_score",
-        "weight_capacity_kg",
-        "biodegradability_score",
-        "recyclability_percent",
-        "moisture_resistance",
-        "heat_resistance"
-    ]
-
-    for field in required_fields:
-        if field not in data:
-            return jsonify({"error": f"Missing field: {field}"}), 400
-
-    # Convert types
-    data["strength_score"] = level_to_num(data["strength_score"])
-    data["biodegradability_score"] = level_to_num(data["biodegradability_score"])
-    data["moisture_resistance"] = level_to_num(data["moisture_resistance"])
-    data["heat_resistance"] = level_to_num(data["heat_resistance"])
-    data["weight_capacity_kg"] = level_to_num(data["weight_capacity_kg"])
-    data["recyclability_percent"] = level_to_num(data["recyclability_percent"])
-    weights = data.get("weights", {"cost": 1, "co2": 1})
-
-    # Load materials from DB
+def call_gemini_vision(image_bytes: bytes, mime_type="image/jpeg") -> dict:
+    """
+    Call Gemini Vision using the new google-genai SDK (v1.0+).
+    The old google-generativeai SDK is deprecated and broken.
+    """
+    if not GEMINI_API_KEY:
+        return {"error": "GEMINI_API_KEY not set — add it to your environment", "fallback": True}
     try:
-        conn = get_db_connection()
-        cur = conn.cursor()
-        cur.execute("""
-            SELECT material_name,
-                   strength_score,
-                   CAST(weight_capacity_kg AS REAL),
-                   biodegradability_score,
-                   CAST(recyclability_percent AS REAL),
-                   moisture_resistance,
-                   heat_resistance
-            FROM materials
-        """)
-        rows = cur.fetchall()
-        cur.close()
-        conn.close()
-    except Exception as e:
-        return jsonify({"error": f"DB Error: {e}"}), 500
+        import google.genai as genai
+        import google.genai.types as gtypes
 
-    if not rows:
-        return jsonify({"error": "No materials in database"}), 500
+        client   = genai.Client(api_key=GEMINI_API_KEY)
+        img_part = gtypes.Part.from_bytes(data=image_bytes, mime_type=mime_type)
 
-    results = []
-
-    for row in rows:
-        strength = level_to_num(row[1])
-        weight = float(row[2])
-        biodeg = level_to_num(row[3])
-        recycle = float(row[4])
-        moisture = level_to_num(row[5])
-        heat = level_to_num(row[6])
-
-        features = np.array([[strength, weight, biodeg, recycle, moisture, heat]])
-
-        try:
-            co2 = float(co2_model.predict(features)[0])
-            cost = float(cost_model.predict(features)[0])
-        except Exception as e:
-            co2, cost = 0, 0
-            print(f"Prediction error for {row[0]}: {e}")
-
-        # Penalty calculation
-        penalty = 0
-        if strength < data["strength_score"]:
-            penalty += data["strength_score"] - strength
-        if weight < data["weight_capacity_kg"]:
-            penalty += data["weight_capacity_kg"] - weight
-        if biodeg < data["biodegradability_score"]:
-            penalty += data["biodegradability_score"] - biodeg
-        if recycle < data["recyclability_percent"]:
-            penalty += data["recyclability_percent"] - recycle
-        if moisture < data["moisture_resistance"]:
-            penalty += data["moisture_resistance"] - moisture
-        if heat < data["heat_resistance"]:
-            penalty += data["heat_resistance"] - heat
-
-        results.append({
-            "material": row[0],
-            "predicted_co2": round(co2, 2),
-            "predicted_cost": round(cost, 2),
-            "penalty": penalty,
-            "confidence": random.randint(80, 95)
-        })
-
-    # Normalization & eco_score
-    max_cost = max(r["predicted_cost"] for r in results) or 1
-    max_co2 = max(r["predicted_co2"] for r in results) or 1
-
-    for r in results:
-        cost_norm = r["predicted_cost"] / max_cost
-        co2_norm = r["predicted_co2"] / max_co2
-        r["eco_score"] = round(
-            weights.get("cost", 1) * cost_norm +
-            weights.get("co2", 1) * co2_norm +
-            r["penalty"] * 0.1,
-            3
+        response = client.models.generate_content(
+            model    = "gemini-2.0-flash",
+            contents = [GEMINI_PROMPT, img_part],
+            config   = gtypes.GenerateContentConfig(
+                temperature      = 0.1,   # low temp for structured extraction
+                max_output_tokens= 512,
+            ),
         )
 
-    ranked = sorted(results, key=lambda x: x["eco_score"])
+        raw  = response.text.strip()
+        # Strip markdown fences if Gemini wraps in ```json ... ```
+        text = re.sub(r"```(?:json)?\s*", "", raw).strip().rstrip("`").strip()
+        data = json.loads(text)
+        data["source"] = "gemini"
+        return data
 
-    # Save recommendation in session for dashboard
-    session["recommendation"] = ranked[:5]
-
-    return jsonify({"recommended_materials": ranked[:5]})
-
-# ================= SAVE REPORT =================
-@app.route("/save-report", methods=["POST"])
-def save_report():
-    data = request.json
-    try:
-        conn = get_db_connection()
-        cur = conn.cursor()
-        cur.execute("""
-            INSERT INTO user_reports
-            (product_category, selected_material, eco_score, predicted_co2, predicted_cost)
-            VALUES (?, ?, ?, ?, ?)
-        """, (
-            data["product_category"],
-            data["selected_material"],
-            data["eco_score"],
-            data["predicted_co2"],
-            data["predicted_cost"]
-        ))
-        conn.commit()
-        cur.close()
-        conn.close()
+    except json.JSONDecodeError as e:
+        # Gemini returned text but not valid JSON — return raw for debugging
+        return {"error": f"JSON parse error: {e}", "raw_response": raw[:300], "fallback": True}
     except Exception as e:
-        return jsonify({"error": f"DB Error: {e}"}), 500
+        return {"error": str(e), "fallback": True}
 
-    return jsonify({"message": "Report saved successfully"})
+def opencv_fallback(image_bytes: bytes) -> dict:
+    try:
+        import cv2, numpy as np
+        nparr  = np.frombuffer(image_bytes, np.uint8)
+        img    = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+        if img is None: return {"error":"Could not decode image"}
+        h, w   = img.shape[:2]
+        ar     = w / h
+        pixels = img.reshape(-1,3)
+        bright = int(pixels.mean())
+        gray   = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+        edges  = cv2.Canny(gray,50,150)
+        edge_d = round(float(edges.mean()),2)
+        shape  = ("tall/narrow — bottle or tube" if ar < 0.7
+                  else "wide/flat — sheet, box or tray" if ar > 1.5
+                  else "square — jar, can or box")
+        return {
+            "source":"opencv","shape_hint":shape,
+            "color_hint":("light/white" if bright>200 else "dark" if bright<80 else "medium"),
+            "dimensions":f"{w}×{h}px","aspect_ratio":round(ar,2),
+            "brightness":bright,"edge_complexity":edge_d,
+            "category_hint":"container/bottle" if ar<0.8 else "box/flat/sheet",
+        }
+    except ImportError:
+        return {"source":"opencv","error":"opencv not installed","category_hint":"unknown"}
+    except Exception as e:
+        return {"source":"opencv","error":str(e),"category_hint":"unknown"}
 
-# ================= DASHBOARD DATA =================
-@app.route("/dashboard_data", methods=["GET"])
-def dashboard_data():
-    start_date = request.args.get("start")
-    end_date = request.args.get("end")
-    material = request.args.get("material")
+def allowed_file(fn):
+    return "." in fn and fn.rsplit(".",1)[1].lower() in ALLOWED_EXT
 
-    conn = get_db_connection()
-    cur = conn.cursor()
+# ══════════════════════════════════════════════════════════════════════
+@app.route("/")
+def index():
+    history = session.get("history", [])[-5:]
+    return render_template("index.html", history=history)
 
-    query = "FROM user_reports WHERE 1=1"
-    params = []
+@app.route("/upload", methods=["POST"])
+def upload():
+    file = request.files.get("image")
+    if not file or file.filename == "":
+        return jsonify({"error":"No file uploaded"}), 400
+    if not allowed_file(file.filename):
+        return jsonify({"error":"File type not allowed"}), 400
 
-    if start_date and end_date:
-        query += " AND created_at BETWEEN ? AND ?"
-        params.extend([start_date, end_date])
-    if material:
-        query += " AND selected_material = ?"
-        params.append(material)
+    ext   = file.filename.rsplit(".",1)[1].lower()
+    fname = f"{uuid.uuid4().hex}.{ext}"
+    fpath = os.path.join(app.config["UPLOAD_FOLDER"], fname)
+    file.seek(0); image_bytes = file.read()
+    with open(fpath,"wb") as fh: fh.write(image_bytes)
 
-    # KPI Metrics
-    cur.execute(f"""
-        SELECT COUNT(*),
-               AVG(eco_score),
-               AVG(predicted_co2),
-               AVG(predicted_cost),
-               SUM(predicted_co2),
-               SUM(predicted_cost)
-        {query}
-    """, params)
-    result = cur.fetchone()
-    total_reports = result[0] or 0
-    avg_eco = round(result[1] or 0,2)
-    avg_co2 = round(result[2] or 0,2)
-    avg_cost = round(result[3] or 0,2)
-    total_co2 = result[4] or 0
-    total_cost = result[5] or 0
+    mime_map = {"jpg":"image/jpeg","jpeg":"image/jpeg",
+                "png":"image/png","webp":"image/webp","gif":"image/gif"}
+    mime = mime_map.get(ext,"image/jpeg")
 
-    # Baseline comparison
-    baseline_co2 = total_reports * 50
-    baseline_cost = total_reports * 100
-    co2_reduction = round(baseline_co2 - total_co2,2)
-    cost_savings = round(baseline_cost - total_cost,2)
-    better_than_plastic = round((co2_reduction / baseline_co2 * 100) if baseline_co2 else 0,2)
+    gemini = call_gemini_vision(image_bytes, mime)
+    opencv = opencv_fallback(image_bytes)
 
-    # Material breakdown
-    cur.execute(f"""
-        SELECT selected_material, COUNT(*)
-        {query}
-        GROUP BY selected_material
-    """, params)
-    rows = cur.fetchall()
-    materials = [r[0] for r in rows]
-    material_counts = [r[1] for r in rows]
-    top_material = materials[0] if materials else "N/A"
+    session["image_file"]    = fname
+    session["gemini_result"] = gemini
+    session["opencv_result"] = opencv
 
-    # Trend data
-    cur.execute(f"""
-        SELECT created_at, predicted_cost, predicted_co2
-        {query}
-        ORDER BY created_at
-    """, params)
-    trend = cur.fetchall()
-    cumulative_cost, cumulative_co2 = [], []
-    run_cost = run_co2 = 0
-    for row in trend:
-        run_cost += (100 - float(row[1]))
-        run_co2 += (50 - float(row[2]))
-        cumulative_cost.append(round(run_cost,2))
-        cumulative_co2.append(round(run_co2,2))
+    return jsonify({"success":True,
+                    "image_url":f"/static/uploads/{fname}",
+                    "gemini":gemini,"opencv":opencv})
 
-    cur.close()
-    conn.close()
+@app.route("/confirm")
+def confirm():
+    gemini = session.get("gemini_result",{})
+    opencv = session.get("opencv_result",{})
+    image  = session.get("image_file","")
+    cats   = list(CATEGORY_RULES.keys())
+    mats   = list(MATERIAL_PROPS.keys())
+    return render_template("confirm.html",
+        gemini=gemini, opencv=opencv, image_file=image,
+        materials=mats, categories=cats)
 
-    # AI Insight
-    insight = generate_ai_insight(total_reports, cost_savings, co2_reduction, better_than_plastic)
+@app.route("/predict", methods=["POST"])
+def predict():
+    try:
+        data = request.get_json() or {}
+        user_data = {
+            "category":         data.get("category","General"),
+            "material":         data.get("material","Plastic (PET)"),
+            "weight_g":         float(data.get("weight_g",500)),
+            "fragility":        data.get("fragility","medium"),
+            "recyclability":    float(data.get("recyclability",0.5)),
+            "biodegradability": float(data.get("biodegradability",0.3)),
+            "durability":       float(data.get("durability",0.7)),
+        }
+        result   = predict_packaging(user_data)
+        dist     = float(data.get("transport_distance_km",500))
+        mode     = data.get("transport_mode","road")
+        wt_kg    = float(data.get("weight_g",500)) / 1000
+        result["transport"] = calculate_transport_co2(wt_kg, dist, mode)
 
-    return jsonify({
-        "top_material": top_material,
-        "total_reports": total_reports,
-        "avg_eco": avg_eco,
-        "avg_co2": avg_co2,
-        "avg_cost": avg_cost,
-        "co2_reduction": co2_reduction,
-        "cost_savings": cost_savings,
-        "better_than_plastic": better_than_plastic,
-        "materials": materials,
-        "material_counts": material_counts,
-        "cumulative_cost": cumulative_cost,
-        "cumulative_co2": cumulative_co2,
-        "insight": insight
-    })
+        session["prediction"]   = result
+        session["product_name"] = data.get("product_name","Unknown Product")
+        session["user_data"]    = user_data
 
-def generate_ai_insight(total, savings, co2, percent):
-    if total == 0:
-        return "No reports available yet. Generate sustainability insights by saving material recommendations."
-    return f"""
-    Over {total} sustainability analyses, EcoPack AI achieved 
-    ₹{savings} in estimated cost savings and avoided {co2} units of CO₂ emissions. 
-    This represents a {percent}% improvement compared to traditional plastic packaging.
-    """
+        hist = session.get("history",[])
+        hist.append({
+            "product":     data.get("product_name","Unknown"),
+            "category":    user_data["category"],
+            "recommended": result["recommended_material"],
+            "score":       result["recommended_sustainability"],
+            "co2_saved":   result["co2_saved_kg"],
+        })
+        session["history"] = hist[-20:]
+        return jsonify({"success":True,"result":result})
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({"error":str(e)}), 500
 
-# ================= DASHBOARD PAGES =================
-@app.route("/dashboard")
-def dashboard_page():
-    return render_template("dashboard_data.html")
+@app.route("/result")
+def result():
+    prediction   = session.get("prediction",{})
+    product_name = session.get("product_name","Unknown Product")
+    user_data    = session.get("user_data",{})
+    image_file   = session.get("image_file","")
+    gemini       = session.get("gemini_result",{})
+    if not prediction: return redirect(url_for("index"))
+    return render_template("result.html",
+        prediction=prediction, product_name=product_name,
+        user_data=user_data, image_file=image_file, gemini=gemini)
 
-@app.route("/recommendation_dashboard")
-def recommendation_dashboard():
-    recommendation = session.get("recommendation")
-    return render_template("recommendation_dashboard.html", recommendation=recommendation)
+@app.route("/history")
+def history():
+    hist = session.get("history",[])
+    return render_template("history.html", history=list(reversed(hist)))
 
-# ================= RUN APP =================
+@app.route("/compare")
+def compare():
+    mats = list(MATERIAL_PROPS.keys())
+    cats = list(CATEGORY_RULES.keys())
+    return render_template("compare.html", materials=mats, categories=cats)
+
+# API endpoints
+@app.route("/api/materials-for-category")
+def api_mats_for_cat():
+    cat   = request.args.get("category","General")
+    rules = CATEGORY_RULES.get(normalise_category(cat), CATEGORY_RULES["General"])
+    return jsonify({"allowed":rules["allowed"],"preferred":rules.get("preferred",[]),"banned":rules.get("banned",[])})
+
+@app.route("/api/quick-score")
+def api_quick_score():
+    mat  = request.args.get("material","Plastic (PET)")
+    p    = MATERIAL_PROPS.get(mat, MATERIAL_PROPS["Plastic (PET)"])
+    co2_inv  = 1/(1+p["co2_factor"])
+    cost_inv = 1/(1+p["cost_factor"])
+    score = round((0.35*p["recycle"]+0.30*p["bio"]+0.20*co2_inv+0.15*cost_inv)*100,1)
+    return jsonify({**p,"sustainability_score":score,"material":mat})
+
+@app.route("/api/predict-ajax", methods=["POST"])
+def api_predict_ajax():
+    """Quick prediction without session — for compare tool."""
+    try:
+        data = request.get_json() or {}
+        result = predict_packaging(data)
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({"error":str(e)}), 500
+
+@app.route("/api/materials")
+def api_materials(): return jsonify(get_material_catalogue())
+
+@app.route("/api/health")
+def health():
+    return jsonify({"status":"ok","gemini_configured":bool(GEMINI_API_KEY),"version":"2.0"})
+
+@app.route("/admin")
+def admin():
+    try:
+        df    = pd.read_csv(os.path.join(os.path.dirname(__file__),"data","packaging_dataset.csv"))
+        stats = {"total_rows":len(df),"categories":df["product_category"].nunique(),
+                 "materials":df["current_material"].nunique(),
+                 "missing_pct":round(df.isnull().mean().mean()*100,1)}
+        sample = df.sample(min(30,len(df)),random_state=1).to_dict(orient="records")
+    except Exception as e:
+        stats  = {"error":str(e)}
+        sample = []
+    return render_template("admin.html",stats=stats,sample=sample,
+                           materials=get_material_catalogue())
+
+
+@app.route("/api/test-gemini")
+def test_gemini():
+    """Test endpoint — call with a GET to verify Gemini API key works."""
+    if not GEMINI_API_KEY:
+        return jsonify({"ok": False, "error": "GEMINI_API_KEY env var not set"}), 400
+    try:
+        import google.genai as genai
+        client   = genai.Client(api_key=GEMINI_API_KEY)
+        response = client.models.generate_content(
+            model    = "gemini-2.0-flash",
+            contents = ["Reply with exactly: GEMINI_OK"],
+        )
+        text = response.text.strip()
+        return jsonify({"ok": True, "response": text, "sdk": "google-genai",
+                        "model": "gemini-2.0-flash"})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 500
+
+@app.route("/static/uploads/<path:filename>")
+def uploaded_file(filename):
+    return send_from_directory(app.config["UPLOAD_FOLDER"], filename)
+
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)), debug=True)
-
+    print("🌿 EcoPack AI v2")
+    print(f"   Gemini: {'✅ Configured' if GEMINI_API_KEY else '⚠️  Not set (set GEMINI_API_KEY)'}")
+    app.run(debug=True, host="0.0.0.0", port=5000)

@@ -25,10 +25,9 @@ export GEMINI_API_KEY="your-key-here"
 
 Get a free key at: https://makersuite.google.com/app/apikey
 
-### 3. Generate Dataset & Train Model
+### 3. Train Model
 
 ```bash
-python data/generate_dataset.py   # creates packaging_dataset.csv (~1470 rows)
 python train_model.py              # trains model → models/ecopack_model.pkl
 ```
 
@@ -49,8 +48,7 @@ ecopack/
 ├── train_model.py            ← ML training script
 ├── requirements.txt
 ├── data/
-│   ├── generate_dataset.py   ← Generates realistic messy dataset
-│   └── packaging_dataset.csv ← Generated dataset (1470 rows)
+│   └── packaging_dataset.csv ← Dataset (1470 rows)
 ├── models/
 │   └── ecopack_model.pkl     ← Trained GradientBoosting + encoders
 ├── utils/
@@ -92,7 +90,7 @@ ecopack/
 
 ## 📊 Dataset
 
-- **1,470 rows** with realistic noise:
+- **1,470 rows** 
   - Missing values (~7% per column)
   - Duplicate rows (~40)
   - Mixed units (g/kg)
